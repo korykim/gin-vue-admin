@@ -11,6 +11,7 @@ import (
 // GetTemplateFuncMap 返回模板函数映射，用于在模板中使用
 func GetTemplateFuncMap() template.FuncMap {
 	return template.FuncMap{
+		"title":                    strings.Title,
 		"GenerateField":            GenerateField,
 		"GenerateSearchField":      GenerateSearchField,
 		"GenerateSearchConditions": GenerateSearchConditions,
@@ -111,7 +112,7 @@ func GenerateSearchConditions(fields []*systemReq.AutoCodeField) string {
 
 		var condition string
 
-		if slices.Contains([]string{"enum", "pictures", "picture", "video", "json"}, field.FieldType) {
+		if slices.Contains([]string{"enum", "pictures", "picture", "video", "json", "array"}, field.FieldType) {
 			if field.FieldType == "enum" {
 				if field.FieldSearchType == "LIKE" {
 					condition = fmt.Sprintf(`
@@ -687,7 +688,7 @@ func GenerateSearchField(field systemReq.AutoCodeField) string {
 		// 生成普通搜索字段
 		if field.FieldType == "enum" || field.FieldType == "picture" ||
 			field.FieldType == "pictures" || field.FieldType == "video" ||
-			field.FieldType == "json" || field.FieldType == "richtext" {
+			field.FieldType == "json" || field.FieldType == "richtext" || field.FieldType == "array" {
 			result = fmt.Sprintf("%s  string `json:\"%s\" form:\"%s\"` ",
 				field.FieldName, field.FieldJson, field.FieldJson)
 		} else {
