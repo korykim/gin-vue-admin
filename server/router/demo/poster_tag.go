@@ -23,5 +23,6 @@ func (s *PosterTagRouter) InitPosterTagRouter(Router *gin.RouterGroup, PublicRou
 		posterTagRouterWithoutRecord.GET("getPosterTags", posterTagApi.GetPosterTags)                 // 获取海报的所有标签
 		posterTagRouterWithoutRecord.GET("getTagPosters", posterTagApi.GetTagPosters)                 // 获取标签关联的所有海报
 		posterTagRouterWithoutRecord.GET("getPosterTagRelations", posterTagApi.GetPosterTagRelations) // 分页获取海报标签关联
+		posterTagRouterWithoutRecord.GET("getTagsUsageStats", posterTagApi.GetTagsUsageStats)         // 获取标签使用统计
 	}
 }

@@ -16,8 +16,7 @@ func initBizRouter(routers ...*gin.RouterGroup) {
 	{
 		demoRouter := router.RouterGroupApp.Demo
 		demoRouter.InitStudentRouter(privateGroup, publicGroup)
-		demoRouter.InitHeroRouter(privateGroup, publicGroup)
-		demoRouter.InitHeroSkillRouter(privateGroup, publicGroup)
+
 		demoRouter.InitPostersRouter(privateGroup, publicGroup)
 		demoRouter.InitTagsRouter(privateGroup, publicGroup)
 		demoRouter.InitPosterTagRouter(privateGroup, publicGroup)

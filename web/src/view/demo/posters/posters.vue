@@ -19,6 +19,27 @@
             <el-form-item label="海报标题" prop="title">
   <el-input v-model="searchInfo.title" placeholder="搜索条件" />
 </el-form-item>
+
+            <el-form-item label="标签筛选" prop="tagIds">
+              <el-select
+                v-model="searchInfo.tagIds"
+                multiple
+                filterable
+                collapse-tags
+                collapse-tags-tooltip
+                placeholder="选择标签筛选"
+                style="width: 240px;"
+              >
+                <el-option
+                  v-for="tag in filterTags"
+                  :key="tag.ID"
+                  :label="tag.name"
+                  :value="tag.ID"
+                >
+                  <el-tag :type="tag.color">{{ tag.name }}</el-tag>
+                </el-option>
+              </el-select>
+            </el-form-item>
             
 
         <template v-if="showAllQuery">
@@ -184,18 +205,50 @@
     <!-- 标签管理弹窗 -->
     <el-drawer destroy-on-close :size="appStore.drawerSize" v-model="tagsDialogVisible" :show-close="true" :before-close="closeTagsDialog" title="标签管理">
       <div class="tags-container">
+        <div class="tags-stats">
+          <el-card class="stats-card">
+            <template #header>
+              <div class="card-header">
+                <h3>标签统计</h3>
+              </div>
+            </template>
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <div class="stats-item">
+                  <div class="stats-value">{{ currentPosterTags.length }}</div>
+                  <div class="stats-label">已添加标签</div>
+                </div>
+              </el-col>
+              <el-col :span="8">
+                <div class="stats-item">
+                  <div class="stats-value">{{ availableTags.length }}</div>
+                  <div class="stats-label">可用标签</div>
+                </div>
+              </el-col>
+              <el-col :span="8">
+                <div class="stats-item">
+                  <div class="stats-value">{{ allTags.length }}</div>
+                  <div class="stats-label">总标签数</div>
+                </div>
+              </el-col>
+            </el-row>
+          </el-card>
+        </div>
+      
         <div class="current-tags" v-if="currentPosterTags.length > 0">
           <h3>已添加标签</h3>
-          <el-tag
-            v-for="tag in currentPosterTags"
-            :key="tag.ID"
-            :type="tag.color"
-            class="tag-item"
-            closable
-            @close="removeTag(tag)"
-          >
-            {{ tag.name }}
-          </el-tag>
+          <div class="tags-grid">
+            <el-tag
+              v-for="tag in currentPosterTags"
+              :key="tag.ID"
+              :type="tag.color"
+              class="tag-item"
+              closable
+              @close="removeTag(tag)"
+            >
+              {{ tag.name }}
+            </el-tag>
+          </div>
         </div>
         <div class="no-tags" v-else>
           <el-empty description="尚未添加标签"></el-empty>
@@ -239,7 +292,14 @@
             <el-table-column prop="name" label="标签名称" width="120" />
             <el-table-column prop="color" label="颜色" width="180">
               <template #default="scope">
-                <el-tag :type="scope.row.color">{{ scope.row.color }}</el-tag>
+                <el-tag :type="scope.row.color">{{ scope.row.color || '默认' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="使用次数" width="100" align="center">
+              <template #default="scope">
+                <el-tooltip :content="`被${scope.row.usageCount || 0}个海报使用`" placement="top">
+                  <el-badge :value="scope.row.usageCount || 0" type="info" />
+                </el-tooltip>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="150">
@@ -298,7 +358,8 @@ import {
 import { 
   addTagsToPoster, 
   removeTagsFromPoster, 
-  getPosterTags 
+  getPosterTags,
+  getTagsUsageStats
 } from '@/api/demo/poster_tag'
 
 import { 
@@ -332,6 +393,9 @@ const appStore = useAppStore()
 
 // 控制更多查询条件显示/隐藏状态
 const showAllQuery = ref(false)
+
+// 筛选用的标签列表
+const filterTags = ref([])
 
 // 自动化生成的字典（可能为空）以及字段
 const formData = ref({
@@ -404,6 +468,18 @@ const onReset = () => {
   getTableData()
 }
 
+// 加载筛选用的标签列表
+const loadFilterTags = async () => {
+  try {
+    const res = await getTagsList({ page: 1, pageSize: 100 })
+    if (res.code === 0) {
+      filterTags.value = res.data.list || []
+    }
+  } catch (error) {
+    console.error('获取筛选标签列表失败:', error)
+  }
+}
+
 // 搜索
 const onSubmit = () => {
   elSearchFormRef.value?.validate(async(valid) => {
@@ -427,7 +503,14 @@ const handleCurrentChange = (val) => {
 
 // 查询
 const getTableData = async() => {
-  const table = await getPostersList({ page: page.value, pageSize: pageSize.value, ...searchInfo.value })
+  let queryParams = { ...searchInfo.value }
+  
+  // 处理标签筛选参数
+  if (searchInfo.value.tagIds && searchInfo.value.tagIds.length > 0) {
+    queryParams.tagIds = JSON.stringify(searchInfo.value.tagIds)
+  }
+  
+  const table = await getPostersList({ page: page.value, pageSize: pageSize.value, ...queryParams })
   if (table.code === 0) {
     tableData.value = table.data.list
     total.value = table.data.total
@@ -451,7 +534,10 @@ const getTableData = async() => {
   }
 }
 
+// 初始加载数据
 getTableData()
+// 加载筛选标签
+loadFilterTags()
 
 // ============== 表格控制部分结束 ===============
 
@@ -703,9 +789,17 @@ const tagFormRules = reactive({
 const manageTags = async (row) => {
   currentPosterId.value = row.ID
   tagsDialogVisible.value = true
-  await loadPosterTags()
+  
+  // 优化请求：先加载所有标签，再处理海报标签和可用标签
   await loadAllTags()
-  await loadAvailableTags()
+  await loadPosterTags()
+  
+  // 获取标签使用统计
+  await loadTagsUsageStats()
+  
+  // 根据已有数据计算可用标签，不再发起额外请求
+  const currentTagIds = currentPosterTags.value.map(tag => tag.ID)
+  availableTags.value = allTags.value.filter(tag => !currentTagIds.includes(tag.ID))
 }
 
 // 关闭标签管理对话框
@@ -716,6 +810,9 @@ const closeTagsDialog = () => {
   availableTags.value = []
   selectedTagIds.value = []
   allTags.value = []
+  
+  // 刷新海报列表
+  getTableData()
 }
 
 // 加载所有标签
@@ -742,18 +839,10 @@ const loadPosterTags = async () => {
   }
 }
 
-// 加载可用标签
-const loadAvailableTags = async () => {
-  try {
-    const res = await getTagsList({ page: 1, pageSize: 100 })
-    if (res.code === 0) {
-      // 过滤掉已经添加的标签
-      const currentTagIds = currentPosterTags.value.map(tag => tag.ID)
-      availableTags.value = res.data.list.filter(tag => !currentTagIds.includes(tag.ID))
-    }
-  } catch (error) {
-    console.error('获取标签列表失败:', error)
-  }
+// 更新可用标签（不发起API请求，使用现有数据）
+const updateAvailableTags = () => {
+  const currentTagIds = currentPosterTags.value.map(tag => tag.ID)
+  availableTags.value = allTags.value.filter(tag => !currentTagIds.includes(tag.ID))
 }
 
 // 添加标签
@@ -773,7 +862,8 @@ const addTags = async () => {
       ElMessage.success('添加标签成功')
       selectedTagIds.value = []
       await loadPosterTags()
-      await loadAvailableTags()
+      // 更新可用标签，不再发起额外请求
+      updateAvailableTags()
     }
   } catch (error) {
     console.error('添加标签失败:', error)
@@ -791,7 +881,8 @@ const removeTag = async (tag) => {
     if (res.code === 0) {
       ElMessage.success('移除标签成功')
       await loadPosterTags()
-      await loadAvailableTags()
+      // 更新可用标签，不再发起额外请求
+      updateAvailableTags()
     }
   } catch (error) {
     console.error('移除标签失败:', error)
@@ -821,6 +912,9 @@ const closeTagDialog = () => {
     name: '',
     color: ''
   }
+  
+  // 刷新海报列表，以反映标签的变化
+  getTableData()
 }
 
 // 提交标签表单
@@ -845,7 +939,8 @@ const submitTagForm = async () => {
         
         // 刷新标签列表
         await loadAllTags()
-        await loadAvailableTags()
+        // 更新可用标签
+        updateAvailableTags()
         
         // 如果是编辑了已添加的标签，也需要刷新当前海报的标签
         if (tagFormType.value === 'update') {
@@ -874,7 +969,8 @@ const deleteTagConfirm = (tag) => {
         
         // 刷新标签列表
         await loadAllTags()
-        await loadAvailableTags()
+        // 更新可用标签
+        updateAvailableTags()
         
         // 如果删除的是已添加的标签，也需要刷新当前海报的标签
         if (currentPosterTags.value.some(t => t.ID === tag.ID)) {
@@ -901,11 +997,15 @@ const loadDialogTags = async (posterId = null) => {
   // 重置标签数据
   dialogPosterTags.value = []
   dialogSelectedTagIds.value = []
+  dialogTagsToAdd.value = []
+  dialogTagsToRemove.value = []
   
   // 加载所有标签
   try {
     const res = await getTagsList({ page: 1, pageSize: 100 })
     if (res.code === 0) {
+      const allDialogTags = res.data.list || []
+      
       // 如果是编辑模式，需要获取当前海报的标签
       if (posterId) {
         const tagsRes = await getPosterTags({ posterId })
@@ -914,20 +1014,16 @@ const loadDialogTags = async (posterId = null) => {
           
           // 过滤掉已经添加的标签
           const currentTagIds = dialogPosterTags.value.map(tag => tag.ID)
-          dialogAvailableTags.value = res.data.list.filter(tag => !currentTagIds.includes(tag.ID))
+          dialogAvailableTags.value = allDialogTags.filter(tag => !currentTagIds.includes(tag.ID))
         }
       } else {
         // 新增模式，所有标签都可用
-        dialogAvailableTags.value = res.data.list
+        dialogAvailableTags.value = allDialogTags
       }
     }
   } catch (error) {
     console.error('获取标签列表失败:', error)
   }
-  
-  // 重置待添加和待移除列表
-  dialogTagsToAdd.value = []
-  dialogTagsToRemove.value = []
 }
 
 // 处理弹窗标签选择变化
@@ -1031,6 +1127,30 @@ const saveDialogTagsRelations = async (posterId) => {
   }
 }
 
+// 加载标签使用统计
+const loadTagsUsageStats = async () => {
+  try {
+    const res = await getTagsUsageStats()
+    if (res.code === 0) {
+      // 将使用统计数据应用到allTags
+      const usageStats = res.data || []
+      const usageMap = new Map()
+      
+      // 创建ID到使用次数的映射
+      usageStats.forEach(stat => {
+        usageMap.set(stat.ID, stat.usageCount)
+      })
+      
+      // 更新allTags中的使用次数
+      allTags.value.forEach(tag => {
+        tag.usageCount = usageMap.get(tag.ID) || 0
+      })
+    }
+  } catch (error) {
+    console.error('获取标签使用统计失败:', error)
+  }
+}
+
 </script>
 
 <style>
@@ -1038,13 +1158,51 @@ const saveDialogTagsRelations = async (posterId) => {
   padding: 0 16px;
 }
 
+.tags-stats {
+  margin-bottom: 24px;
+}
+
+.stats-card {
+  margin-bottom: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stats-item {
+  text-align: center;
+  padding: 12px 0;
+}
+
+.stats-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #409EFF;
+}
+
+.stats-label {
+  font-size: 14px;
+  color: #606266;
+  margin-top: 8px;
+}
+
 .current-tags {
   margin-bottom: 24px;
 }
 
+.tags-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .tag-item {
-  margin-right: 8px;
-  margin-bottom: 8px;
+  margin-right: 0;
+  margin-bottom: 0;
 }
 
 .add-tags {

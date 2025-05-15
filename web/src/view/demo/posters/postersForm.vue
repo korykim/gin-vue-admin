@@ -77,6 +77,9 @@ defineOptions({
     name: 'PostersForm'
 })
 
+// 定义emit事件，用于通知父组件刷新列表
+const emit = defineEmits(['refresh-posters'])
+
 // 引入所需的库
 import { useRoute, useRouter } from "vue-router"
 import { ElMessage } from 'element-plus'
@@ -277,6 +280,8 @@ const save = async() => {
                type: 'success',
                message: '创建/更改成功'
              })
+             // 发射事件通知父组件刷新列表
+             emit('refresh-posters')
              // 返回列表页
              back()
            }
@@ -285,6 +290,8 @@ const save = async() => {
 
 // 返回按钮
 const back = () => {
+    // 发射事件通知父组件刷新列表
+    emit('refresh-posters')
     router.go(-1)
 }
 

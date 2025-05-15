@@ -39,8 +39,8 @@ func (posterTagService *PosterTagService) AddTagsToPoster(ctx context.Context, p
 
 	// 开启事务
 	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
-		// 为海报添加标签
-		if err = tx.Model(&poster).Association("Tags").Append(tags); err != nil {
+		// 为海报添加标签，使用Unscoped()避免软删除影响
+		if err = tx.Model(&poster).Association("Tags").Unscoped().Append(tags); err != nil {
 			return err
 		}
 		return nil
@@ -64,8 +64,8 @@ func (posterTagService *PosterTagService) RemoveTagsFromPoster(ctx context.Conte
 
 	// 开启事务
 	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
-		// 从海报中移除标签
-		if err = tx.Model(&poster).Association("Tags").Delete(tags); err != nil {
+		// 从海报中移除标签，使用Unscoped()避免软删除影响
+		if err = tx.Model(&poster).Association("Tags").Unscoped().Delete(tags); err != nil {
 			return err
 		}
 		return nil
@@ -81,8 +81,8 @@ func (posterTagService *PosterTagService) GetPosterTags(ctx context.Context, pos
 		return nil, errors.New(fmt.Sprintf("海报不存在: %v", err))
 	}
 
-	// 查询海报的所有标签
-	if err = global.GVA_DB.Model(&poster).Association("Tags").Find(&tags); err != nil {
+	// 查询海报的所有标签，使用Unscoped()避免软删除影响
+	if err = global.GVA_DB.Model(&poster).Association("Tags").Unscoped().Find(&tags); err != nil {
 		return nil, err
 	}
 	return tags, nil
@@ -97,8 +97,8 @@ func (posterTagService *PosterTagService) GetTagPosters(ctx context.Context, tag
 		return nil, errors.New(fmt.Sprintf("标签不存在: %v", err))
 	}
 
-	// 查询标签关联的所有海报
-	if err = global.GVA_DB.Model(&tag).Association("Posters").Find(&posters); err != nil {
+	// 查询标签关联的所有海报，使用Unscoped()避免软删除影响
+	if err = global.GVA_DB.Model(&tag).Association("Posters").Unscoped().Find(&posters); err != nil {
 		return nil, err
 	}
 	return posters, nil
@@ -110,7 +110,7 @@ func (posterTagService *PosterTagService) GetPosterTagRelations(ctx context.Cont
 	limit := info.PageSize
 	offset := info.PageSize * (info.Page - 1)
 	// 创建db
-	db := global.GVA_DB.Model(&demo.PosterTag{})
+	db := global.GVA_DB.Model(&demo.PosterTag{}).Unscoped()
 
 	// 如果有条件搜索 下方会自动创建搜索语句
 	if info.StartCreatedAt != nil && info.EndCreatedAt != nil {
@@ -155,4 +155,50 @@ func (posterTagService *PosterTagService) GetPosterTagRelations(ctx context.Cont
 	var posterTags []demo.PosterTag
 	err = db.Find(&posterTags).Error
 	return posterTags, total, err
+}
+
+// GetTagsUsageStats 获取标签使用统计
+// Author [yourname](https://github.com/yourname)
+func (posterTagService *PosterTagService) GetTagsUsageStats(ctx context.Context) ([]map[string]interface{}, error) {
+	var tagStats []struct {
+		TagID uint `json:"tag_id"`
+		Count int  `json:"count"`
+	}
+
+	// 通过关联表count每个标签的使用次数，使用Unscoped()禁用软删除条件
+	if err := global.GVA_DB.Table("poster_tags").Unscoped().
+		Select("tag_id, count(poster_id) as count").
+		Group("tag_id").
+		Find(&tagStats).Error; err != nil {
+		return nil, err
+	}
+
+	// 获取所有标签信息
+	var tags []demo.Tag
+	if err := global.GVA_DB.Find(&tags).Error; err != nil {
+		return nil, err
+	}
+
+	// 合并标签信息和使用统计
+	result := make([]map[string]interface{}, 0, len(tags))
+	tagStatsMap := make(map[uint]int)
+
+	// 将标签使用次数放入map便于查找
+	for _, stat := range tagStats {
+		tagStatsMap[stat.TagID] = stat.Count
+	}
+
+	// 为每个标签创建结果对象
+	for _, tag := range tags {
+		count := tagStatsMap[tag.ID] // 如果没有找到，默认为0
+		tagInfo := map[string]interface{}{
+			"ID":         tag.ID,
+			"name":       tag.Name,
+			"color":      tag.Color,
+			"usageCount": count,
+		}
+		result = append(result, tagInfo)
+	}
+
+	return result, nil
 }

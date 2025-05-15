@@ -78,4 +78,18 @@ export const getPosterTagRelations = (params) => {
     method: 'get',
     params
   })
+}
+
+// @Tags PosterTag
+// @Summary 获取标签使用统计
+// @Security ApiKeyAuth
+// @Accept application/json
+// @Produce application/json
+// @Success 200 {string} string "{"success":true,"data":{},"msg":"获取成功"}"
+// @Router /posterTag/getTagsUsageStats [get]
+export const getTagsUsageStats = () => {
+  return service({
+    url: '/posterTag/getTagsUsageStats',
+    method: 'get'
+  })
 } 

@@ -172,3 +172,24 @@ func (posterTagApi *PosterTagApi) GetPosterTagRelations(c *gin.Context) {
 		PageSize: pageInfo.PageSize,
 	}, "获取成功", c)
 }
+
+// GetTagsUsageStats 获取标签使用统计
+// @Tags PosterTag
+// @Summary 获取标签使用统计
+// @Security ApiKeyAuth
+// @Accept application/json
+// @Produce application/json
+// @Success 200 {object} response.Response{data=[]map[string]interface{},msg=string} "获取成功"
+// @Router /posterTag/getTagsUsageStats [get]
+func (posterTagApi *PosterTagApi) GetTagsUsageStats(c *gin.Context) {
+	// 创建业务用Context
+	ctx := c.Request.Context()
+
+	stats, err := posterTagService.GetTagsUsageStats(ctx)
+	if err != nil {
+		global.GVA_LOG.Error("获取标签使用统计失败!", zap.Error(err))
+		response.FailWithMessage("获取标签使用统计失败:"+err.Error(), c)
+		return
+	}
+	response.OkWithData(stats, c)
+}
