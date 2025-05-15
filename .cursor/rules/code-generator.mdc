@@ -1,0 +1,81 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 代码生成器系统
+
+Gin-Vue-Admin提供了强大的代码生成器功能，可以根据数据库表结构自动生成前后端代码，大大提高开发效率。
+
+## 代码生成流程
+
+1. **获取数据库信息**
+   - [获取所有数据库](mdc:server/api/v1/system/sys_auto_code.go) (GetDB)
+   - [获取数据库表](mdc:server/api/v1/system/sys_auto_code.go) (GetTables)
+   - [获取表字段信息](mdc:server/api/v1/system/sys_auto_code.go) (GetColumn)
+
+2. **配置代码生成选项**
+   - 配置模型信息（表名、结构体名等）
+   - 配置字段属性（类型、验证规则等）
+   - 配置生成策略（需要生成的文件类型）
+
+3. **生成代码**
+   - 前端代码生成（Vue组件、API请求等）
+   - 后端代码生成（Model、API、Service、Router等）
+
+## 支持的数据库
+
+代码生成器支持多种数据库类型：
+
+- MySQL：[server/service/system/sys_auto_code_mysql.go](mdc:server/service/system/sys_auto_code_mysql.go)
+- PostgreSQL：`server/service/system/sys_auto_code_pgsql.go`
+- MS SQL Server：`server/service/system/sys_auto_code_mssql.go`
+
+## 生成的代码结构
+
+代码生成器生成的文件遵循项目的分层结构：
+
+### 后端文件
+- Model文件 - 定义数据模型和请求/响应结构
+- API文件 - 实现HTTP接口
+- Service文件 - 实现业务逻辑
+- Router文件 - 注册路由
+
+### 前端文件
+- API请求文件 - 定义前端API调用
+- 表格视图文件 - 实现数据列表展示
+- 表单文件 - 实现数据编辑表单
+
+## 代码生成配置
+
+系统在`config.yaml`中提供了代码生成的相关配置：
+
+```yaml
+# autocode configuration
+autocode:
+  transfer-restart: true  # 自动重启
+  root: ""               # 项目根目录
+  server: "/server"      # 后端目录
+  server-api: "/api/v1"  # API目录
+  server-model: "/model" # 模型目录
+  server-request: "/model/request/"  # 请求结构体目录
+  server-router: "/router"  # 路由目录
+  server-service: "/service"  # 服务目录
+  web: "/web/src"        # 前端目录
+  web-api: "/api"        # 前端API目录
+  web-form: "/view"      # 前端表单目录
+  web-table: "/view"     # 前端表格目录
+```
+
+## AI辅助代码生成
+
+系统还提供了AI辅助代码生成功能：
+
+```go
+// LLMAuto - AI辅助代码生成
+func (autoApi *AutoCodeApi) LLMAuto(c *gin.Context) {
+    // ...
+}
+```
+
+通过AI模型，用户可以通过自然语言描述需求，系统自动生成相应的代码结构。

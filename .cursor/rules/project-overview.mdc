@@ -1,0 +1,71 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Gin-Vue-Admin项目概览
+
+本项目是一个基于Vue和Gin开发的全栈前后端分离的开发基础平台，集成了JWT鉴权、动态路由、动态菜单、Casbin鉴权、表单生成器、代码生成器等功能。
+
+## 技术栈
+
+### 后端 (Go)
+- 主框架：[Gin](mdc:https:/gin-gonic.com)
+- 数据库ORM：[GORM](mdc:https:/gorm.io) - 版本1.25.2
+- 配置管理：[Viper](mdc:https:/github.com/spf13/viper)
+- 日志管理：[Zap](mdc:https:/github.com/uber-go/zap)
+- 权限控制：[Casbin](mdc:https:/casbin.org)
+- API文档：[Swagger](mdc:https:/swagger.io)
+- Go版本要求：>= 1.22
+
+### 前端 (Vue)
+- 主框架：[Vue 3](mdc:https:/vuejs.org) - 版本3.3.4
+- UI组件库：[Element Plus](mdc:https:/element-plus.org) - 版本2.3.8
+- 状态管理：[Pinia](mdc:https:/pinia.vuejs.org)
+- 路由管理：Vue Router
+- Node版本要求：> v18.16.0
+
+### 数据库与缓存
+- 数据库：MySQL > 5.7 (InnoDB引擎)
+- 缓存：Redis
+
+## 项目结构
+
+项目分为两个主要部分：server (后端) 和 web (前端)
+
+### 后端结构 (server)
+- `api` - API层，包含接口实现
+- `config` - 配置包
+- `core` - 核心文件
+- `docs` - Swagger文档
+- `global` - 全局对象
+- `initialize` - 初始化
+- `middleware` - 中间件
+- `model` - 数据模型
+- `router` - 路由层
+- `service` - 服务层
+- `source` - 数据源层
+- `utils` - 工具包
+
+### 前端结构 (web)
+- `src/api` - API请求
+- `src/assets` - 静态资源
+- `src/components` - 全局组件
+- `src/core` - GVA核心组件
+- `src/pinia` - Pinia状态管理
+- `src/router` - 路由配置
+- `src/utils` - 工具函数
+- `src/view` - 页面视图
+
+## 主要入口文件
+- 后端入口：[server/main.go](mdc:server/main.go)
+- 前端入口：[web/src/main.js](mdc:web/src/main.js)
+
+## 功能特性
+- JWT鉴权
+- 动态路由和菜单
+- 基于Casbin的RBAC权限控制
+- 代码生成器
+- 表单生成器
+- Swagger自动化API文档
+- 多点登录限制

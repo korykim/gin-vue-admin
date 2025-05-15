@@ -1,0 +1,90 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# API结构规范
+
+Gin-Vue-Admin使用Gin框架实现RESTful风格的API，并采用分层设计模式。API实现遵循以下规范和结构。
+
+## API实现层次
+
+系统采用四层架构：
+
+1. **API层 (`api/v1/`)** - 处理HTTP请求和响应
+2. **Service层 (`service/`)** - 实现业务逻辑
+3. **Model层 (`model/`)** - 定义数据结构
+4. **DAO层 (通过GORM实现)** - 数据访问操作
+
+## API层规范
+
+API层的代码主要在[server/api/v1/](mdc:server/api/v1)目录下，按模块分组。每个API函数遵循以下模式：
+
+```go
+// @Tags      标签
+// @Summary   接口简介
+// @Security  ApiKeyAuth
+// @accept    application/json
+// @Produce   application/json
+// @Param     参数说明
+// @Success   返回说明
+// @Router    路由地址 [请求方法]
+func (s *XXXApi) FunctionName(c *gin.Context) {
+    // 1. 参数绑定和验证
+    // 2. 调用Service层处理业务逻辑
+    // 3. 处理返回结果
+    // 4. 统一响应
+}
+```
+
+参考示例：[server/api/v1/system/sys_api.go](mdc:server/api/v1/system/sys_api.go)
+
+## 请求和响应规范
+
+### 请求数据结构
+
+- 普通请求参数：定义在 `model/xxx/request` 目录下
+- 分页请求参数：通常继承自 `request.PageInfo`
+- 参数验证：使用 `utils.Verify` 进行验证
+
+### 响应数据结构
+
+系统采用统一的响应格式：
+
+```go
+{
+    "code": 0,       // 0表示成功，非0表示错误码
+    "data": {},      // 返回的数据
+    "msg": "success" // 响应消息
+}
+```
+
+响应调用示例：
+
+```go
+// 成功响应
+response.OkWithMessage("操作成功", c)
+response.OkWithData(data, c)
+response.OkWithDetailed(data, "操作成功", c)
+
+// 失败响应
+response.FailWithMessage("操作失败", c)
+response.FailWithDetailed(data, "操作失败", c)
+```
+
+## Swagger文档
+
+系统使用Swagger自动生成API文档：
+
+1. 每个API函数都应该添加完整的Swagger注释
+2. 使用 `swag init` 命令生成文档
+3. 访问 `/swagger/index.html` 查看API文档
+
+## API权限控制
+
+API权限控制基于Casbin实现：
+
+1. API需要在数据库中注册
+2. 可以通过 `/api/syncApi` 自动同步API到数据库
+3. 通过角色分配API权限
+4. JWT中间件和Casbin中间件实现权限验证

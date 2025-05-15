@@ -1,0 +1,69 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 用户认证与权限系统
+
+Gin-Vue-Admin使用JWT和Casbin实现用户认证与权限控制，提供了完整的用户管理、角色管理和权限分配功能。
+
+## 用户模型
+
+用户模型定义在[server/model/system/sys_user.go](mdc:server/model/system/sys_user.go)中，包含以下重要字段：
+
+- `UUID` - 用户唯一标识
+- `Username` - 用户登录名
+- `Password` - 加密存储的密码
+- `NickName` - 用户昵称
+- `AuthorityId` - 用户默认角色ID
+- `Authorities` - 用户拥有的所有角色（多对多关系）
+- `Enable` - 用户状态（正常/冻结）
+
+## 认证流程
+
+认证相关的服务实现在[server/service/system/sys_user.go](mdc:server/service/system/sys_user.go)中，主要包括：
+
+1. **注册流程** (`Register`)
+   - 检查用户名是否已存在
+   - 对密码进行Bcrypt加密
+   - 生成UUID
+   - 创建用户记录
+
+2. **登录流程** (`Login`)
+   - 根据用户名查询用户
+   - 使用Bcrypt验证密码
+   - 加载用户权限和角色信息
+   - 获取用户默认路由
+
+3. **JWT认证**
+   - 登录成功后生成JWT令牌
+   - API请求通过中间件验证JWT令牌
+   - 使用Redis实现多点登录控制
+
+## 权限控制系统
+
+Gin-Vue-Admin使用Casbin实现RBAC（基于角色的访问控制）权限系统：
+
+1. **角色管理**
+   - 系统支持多角色
+   - 用户可以拥有多个角色
+   - 每个角色有默认的路由页面
+
+2. **权限分配**
+   - 基于角色的菜单权限
+   - 基于角色的API权限
+   - 按钮级别的权限控制
+
+3. **动态权限**
+   - 后端基于Casbin的权限验证
+   - 前端动态路由和菜单生成
+   - 权限变更实时生效
+
+## 鉴权中间件
+
+系统使用以下中间件实现API鉴权：
+
+1. **JWT中间件** - 验证用户身份
+2. **Casbin中间件** - 验证用户权限
+
+中间件在路由注册时通过路由组进行配置，分为公共路由和私有路由，私有路由需要进行身份验证和权限验证。
