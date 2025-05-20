@@ -352,8 +352,8 @@ func (a *qmUser) Login(c *gin.Context) {
 	store := captcha.NewDefaultRedisStore()
 
 	// 调试信息
-	global.GVA_LOG.Info("Login attempt", zap.String("username", *loginReq.Username))
-	global.GVA_LOG.Info("Captcha info", zap.String("captchaId", loginReq.CaptchaId), zap.String("captcha", loginReq.Captcha))
+	//global.GVA_LOG.Info("Login attempt", zap.String("username", *loginReq.Username))
+	//global.GVA_LOG.Info("Captcha info", zap.String("captchaId", loginReq.CaptchaId), zap.String("captcha", loginReq.Captcha))
 
 	// 修复验证码逻辑：如果需要验证码，则必须验证通过；如果不需要验证码，则直接通过
 	if !oc || (loginReq.CaptchaId != "" && loginReq.Captcha != "" && store.Verify(loginReq.CaptchaId, loginReq.Captcha, true)) {
@@ -375,7 +375,7 @@ func (a *qmUser) Login(c *gin.Context) {
 		}
 
 		// 记录用户ID用于调试
-		global.GVA_LOG.Info("用户登录成功", zap.Uint("userId", user.ID))
+		//global.GVA_LOG.Info("用户登录成功", zap.Uint("userId", user.ID))
 
 		token, claims, err := utils.LoginToken(&user)
 		if err != nil {
@@ -385,9 +385,9 @@ func (a *qmUser) Login(c *gin.Context) {
 		}
 
 		// 记录token信息用于调试
-		global.GVA_LOG.Info("Token生成成功",
-			zap.Uint("userId", claims.BaseClaims.ID),
-			zap.String("username", claims.Username))
+		// global.GVA_LOG.Info("Token生成成功",
+		// 	zap.Uint("userId", claims.BaseClaims.ID),
+		// 	zap.String("username", claims.Username))
 
 		maxAge := int(claims.RegisteredClaims.ExpiresAt.Unix() - time.Now().Unix())
 		utils.SetToken(c, token, maxAge)

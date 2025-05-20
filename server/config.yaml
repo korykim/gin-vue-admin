@@ -98,11 +98,11 @@ local:
     path: uploads/file
     store-path: uploads/file
 mcp:
-    name: ""
-    version: ""
-    sse_path: ""
-    message_path: ""
-    url_prefix: ""
+    name: GVA_MCP  # MCP服务名称
+    version: v1.0.0 # 版本号
+    sse_path: /sse # SSE路径
+    message_path: /message # 消息路径
+    url_prefix: '' # URL前缀
 minio:
     endpoint: yourEndpoint
     access-key-id: yourAccessKeyId
