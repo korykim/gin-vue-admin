@@ -366,6 +366,14 @@ func (a *qmUser) Login(c *gin.Context) {
 			return
 		}
 
+		if user.Enable != 1 {
+			global.GVA_LOG.Error("登陆失败! 用户被禁止登录!")
+			// 验证码次数+1
+			global.BlackCache.Increment(key, 1)
+			response.FailWithMessage("用户被禁止登录", c)
+			return
+		}
+
 		// 记录用户ID用于调试
 		global.GVA_LOG.Info("用户登录成功", zap.Uint("userId", user.ID))
 

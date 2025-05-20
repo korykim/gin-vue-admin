@@ -20,6 +20,7 @@ type QmUser struct {
 	Gender       string    `json:"gender" form:"gender" gorm:"column:gender;type:enum('男','女');"`                                     //性别
 	Introduction *string   `json:"introduction" form:"introduction" gorm:"column:introduction;"`
 	AuthorityId  uint      `json:"authorityId" form:"authorityId" gorm:"column:authority_id;comment:用户角色ID"` //权限ID
+	Enable       int       `json:"enable" gorm:"default:1;comment:用户是否被冻结 1正常 2冻结"`
 }
 
 // TableName 用户信息 QmUser自定义表名 qm_client_user
@@ -65,4 +66,9 @@ func (u *QmUser) GetAuthorityId() uint {
 // GetUserInfo 获取用户信息
 func (u *QmUser) GetUserInfo() any {
 	return *u
+}
+
+// GetEnable 获取用户是否被冻结
+func (u *QmUser) GetEnable() int {
+	return u.Enable
 }
