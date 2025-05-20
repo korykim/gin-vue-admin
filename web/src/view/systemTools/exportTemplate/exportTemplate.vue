@@ -196,7 +196,7 @@
         :rules="rule"
         label-width="100px"
         v-loading="aiLoading"
-        element-loading-text="小淼正在思考..."
+        element-loading-text="AI正在思考..."
       >
         <el-form-item label="业务库" prop="dbName">
           <template #label>

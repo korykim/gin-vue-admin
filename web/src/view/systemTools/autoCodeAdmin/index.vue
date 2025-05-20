@@ -144,7 +144,7 @@
         <el-form
           v-loading="aiLoading"
           label-position="top"
-          element-loading-text="小淼正在思考，请稍候..."
+          element-loading-text="AI正在思考，请稍候..."
           :model="autoFunc"
           label-width="80px"
         >
