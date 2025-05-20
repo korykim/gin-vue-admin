@@ -232,6 +232,8 @@ func (a *qmUser) Register(c *gin.Context) {
 
 	var registerReq request.QmUser
 	err := c.ShouldBindJSON(&registerReq)
+	key := c.ClientIP()
+
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
@@ -243,25 +245,57 @@ func (a *qmUser) Register(c *gin.Context) {
 		return
 	}
 
-	// 创建用户模型
-	var user model.QmUser
-	user.Username = registerReq.Username
-	user.Password = registerReq.Password
-
-	// 昵称可选，如果提供则使用
-	if registerReq.Nickname != nil {
-		user.Nickname = registerReq.Nickname
+	// 判断验证码是否开启
+	openCaptcha := global.GVA_CONFIG.Captcha.OpenCaptcha               // 是否开启防爆次数
+	openCaptchaTimeOut := global.GVA_CONFIG.Captcha.OpenCaptchaTimeOut // 缓存超时时间
+	v, ok := global.BlackCache.Get(key)
+	if !ok {
+		global.BlackCache.Set(key, 1, time.Second*time.Duration(openCaptchaTimeOut))
 	}
 
-	// 调用service方法创建用户
-	err = serviceQmUser.CreateQmUser(ctx, &user)
-	if err != nil {
-		global.GVA_LOG.Error("注册失败", zap.Error(err))
-		response.FailWithMessage("注册失败: "+err.Error(), c)
+	// 判断是否需要验证码
+	var oc bool = openCaptcha == 0 || openCaptcha < interfaceToInt(v)
+
+	// 验证码校验
+	store := captcha.NewDefaultRedisStore()
+
+	// 调试信息
+	global.GVA_LOG.Info("注册尝试", zap.String("username", *registerReq.Username))
+
+	if registerReq.CaptchaId != "" && registerReq.Captcha != "" {
+		global.GVA_LOG.Info("验证码信息", zap.String("captchaId", registerReq.CaptchaId), zap.String("captcha", registerReq.Captcha))
+	}
+
+	// 验证码逻辑：如果需要验证码，则必须验证通过；如果不需要验证码，则直接通过
+	if !oc || (registerReq.CaptchaId != "" && registerReq.Captcha != "" && store.Verify(registerReq.CaptchaId, registerReq.Captcha, true)) {
+		// 创建用户模型
+		var user model.QmUser
+		user.Username = registerReq.Username
+		user.Password = registerReq.Password
+
+		// 昵称可选，如果提供则使用
+		if registerReq.Nickname != nil {
+			user.Nickname = registerReq.Nickname
+		}
+
+		// 调用service方法创建用户
+		err = serviceQmUser.CreateQmUser(ctx, &user)
+		if err != nil {
+			global.GVA_LOG.Error("注册失败", zap.Error(err))
+			// 验证码次数+1
+			global.BlackCache.Increment(key, 1)
+			response.FailWithMessage("注册失败: "+err.Error(), c)
+			return
+		}
+
+		global.GVA_LOG.Info("用户注册成功", zap.Uint("userId", user.ID), zap.String("username", *user.Username))
+		response.OkWithMessage("注册成功", c)
 		return
 	}
 
-	response.OkWithMessage("注册成功", c)
+	// 验证码次数+1
+	global.BlackCache.Increment(key, 1)
+	response.FailWithMessage("验证码错误", c)
 }
 
 // 用户登录API
