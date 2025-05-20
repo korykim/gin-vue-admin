@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -41,6 +42,11 @@ func (rs *RedisStore) Set(id string, value string) error {
 func (rs *RedisStore) Get(key string, clear bool) string {
 	val, err := global.GVA_REDIS.Get(rs.Context, key).Result()
 	if err != nil {
+		if err == redis.Nil {
+			// 键不存在，这是正常情况，不需要记录错误日志
+			return ""
+		}
+		// 其他错误，记录日志
 		global.GVA_LOG.Error("RedisStoreGetError!", zap.Error(err))
 		return ""
 	}

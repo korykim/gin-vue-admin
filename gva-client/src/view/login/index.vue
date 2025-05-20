@@ -30,6 +30,22 @@
             </template>
           </el-input>
         </el-form-item>
+        <el-form-item v-if="loginForm.openCaptcha" prop="captcha">
+          <div class="captcha-container">
+            <el-input 
+              v-model="loginForm.captcha" 
+              placeholder="请输入验证码" 
+              clearable
+            >
+              <template #prefix>
+                <el-icon><Key /></el-icon>
+              </template>
+            </el-input>
+            <div class="captcha-image" @click="getCaptcha">
+              <img v-if="picPath" :src="picPath" alt="验证码">
+            </div>
+          </div>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" class="login-button" @click="submitForm">登录</el-button>
         </el-form-item>
@@ -49,23 +65,54 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/pinia/modules/user'
 import { ElMessage } from 'element-plus'
-import { User, Lock } from '@element-plus/icons-vue'
+import { User, Lock, Key } from '@element-plus/icons-vue'
 import Cookies from 'js-cookie'
+import { captcha } from '@/api/user'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const loading = ref(false)
 const loginFormRef = ref(null)
+const picPath = ref('')
 
 const loginForm = reactive({
   username: '',
-  password: ''
+  password: '',
+  captcha: '',
+  captchaId: '',
+  openCaptcha: false
 })
 
 const loginRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  captcha: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
+}
+
+// 获取验证码
+const getCaptcha = async () => {
+  try {
+    const res = await captcha()
+    if (res.code === 0) {
+      const { data } = res
+      picPath.value = data.picPath
+      loginForm.captchaId = data.captchaId
+      loginForm.openCaptcha = data.openCaptcha
+      
+      // 更新验证码规则
+      loginRules.captcha = [{
+        required: true,
+        message: `请输入${data.captchaLength}位验证码`,
+        trigger: 'blur',
+        min: data.captchaLength,
+        max: data.captchaLength
+      }]
+    }
+  } catch (error) {
+    console.error('获取验证码失败:', error)
+    ElMessage.error('获取验证码失败')
+  }
 }
 
 const submitForm = () => {
@@ -78,12 +125,32 @@ const submitForm = () => {
         // 确保用户名和密码不为空
         if (!loginForm.username || !loginForm.password) {
           ElMessage.error('用户名和密码不能为空')
+          loading.value = false
           return
         }
         
-        console.log('提交登录表单:', loginForm) // 调试输出
+        // 如果需要验证码但未输入，提示用户
+        if (loginForm.openCaptcha && !loginForm.captcha) {
+          ElMessage.error('请输入验证码')
+          loading.value = false
+          return
+        }
         
-        const success = await userStore.LoginIn(loginForm)
+        // 构建提交数据，去掉 openCaptcha 字段
+        const submitData = {
+          username: loginForm.username,
+          password: loginForm.password
+        }
+        
+        // 只有当需要验证码时，才添加验证码相关字段
+        if (loginForm.openCaptcha) {
+          submitData.captcha = loginForm.captcha
+          submitData.captchaId = loginForm.captchaId
+        }
+        
+        console.log('提交登录表单:', submitData) // 调试输出
+        
+        const success = await userStore.LoginIn(submitData)
         if (success) {
           ElMessage.success('登录成功')
           
@@ -94,10 +161,15 @@ const submitForm = () => {
           // 如果有重定向参数，跳转到对应页面，否则跳转到控制台
           const redirectPath = route.query.redirect || '/dashboard'
           router.push(redirectPath)
+        } else {
+          // 登录失败，刷新验证码
+          getCaptcha()
         }
       } catch (error) {
         console.error('登录错误:', error)
         ElMessage.error('登录失败: ' + (error.message || '未知错误'))
+        // 登录失败，刷新验证码
+        getCaptcha()
       } finally {
         loading.value = false
       }
@@ -112,9 +184,12 @@ const goToRegister = () => {
   router.push('/register')
 }
 
-// 测试输入框是否正常工作
+// 页面加载时获取验证码
 onMounted(() => {
   console.log('登录页面已加载')
+  
+  // 获取验证码
+  getCaptcha()
   
   // 检查是否已有 token
   const token = Cookies.get('x-token') || localStorage.getItem('x-token')
@@ -169,6 +244,31 @@ onMounted(() => {
 
 .login-form {
   margin-top: 20px;
+}
+
+.captcha-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  
+  .el-input {
+    flex: 1;
+  }
+  
+  .captcha-image {
+    width: 120px;
+    height: 40px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
 }
 
 .login-button {

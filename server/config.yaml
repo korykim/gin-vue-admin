@@ -10,7 +10,7 @@ autocode:
     root: /home/kory/go/src/gin-vue-admin
     server: server
     module: github.com/flipped-aurora/gin-vue-admin/server
-    ai-path: "https://ai.gin-vue-admin.com/{FUNC}/korykim/1de11267-851c-4f85-b681-b2ec12519de5"
+    ai-path: https://ai.gin-vue-admin.com/{FUNC}/korykim/1de11267-851c-4f85-b681-b2ec12519de5
 aws-s3:
     bucket: xxxxx-10005608
     region: ap-shanghai
@@ -87,9 +87,22 @@ jwt:
     expires-time: 7d
     buffer-time: 1d
     issuer: qmPlus
+komo:
+    key-long: 6
+    img-width: 240
+    img-height: 80
+    open-captcha: 0
+    open-captcha-timeout: 3600
+    authority-id: 9999
 local:
     path: uploads/file
     store-path: uploads/file
+mcp:
+    name: ""
+    version: ""
+    sse_path: ""
+    message_path: ""
+    url_prefix: ""
 minio:
     endpoint: yourEndpoint
     access-key-id: yourAccessKeyId
@@ -240,5 +253,3 @@ zap:
     log-in-console: true
     retention-day: -1
 
-komo:
-    authority-id: 9999

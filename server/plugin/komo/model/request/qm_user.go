@@ -18,6 +18,14 @@ type QmUser struct {
 	Nickname *string `json:"nickname" form:"nickname" gorm:"column:nickname;"`                    //昵称
 }
 
+// QmLogin 用户登录结构体
+type QmLogin struct {
+	Username  *string `json:"username" form:"username" binding:"required"` // 用户名
+	Password  *string `json:"password" form:"password" binding:"required"` // 密码
+	Captcha   string  `json:"captcha"`                                     // 验证码
+	CaptchaId string  `json:"captchaId"`                                   // 验证码ID
+}
+
 type AdminChangePasswordReq struct {
 	UserID   uint   `json:"userID" form:"userID"`
 	Password string `json:"password" form:"password"`

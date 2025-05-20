@@ -3,6 +3,7 @@ package initialize
 import (
 	"context"
 	"fmt"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/komo/model"
 	"github.com/pkg/errors"

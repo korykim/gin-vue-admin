@@ -8,6 +8,7 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/komo/model"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/komo/model/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/flipped-aurora/gin-vue-admin/server/utils/captcha"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -268,7 +269,7 @@ func (a *qmUser) Register(c *gin.Context) {
 // @Summary 用户登录
 // @Accept application/json
 // @Produce application/json
-// @Param body body request.QmUser true "用户登录请求参数"
+// @Param body body request.QmLogin true "用户登录请求参数"
 // @Success 200 {object} response.Response{data=model.QmUser,msg=string} "登录成功"
 // @Failure 400 {object} response.Response{data=object,msg=string} "登录失败"
 // @Router /qmUser/login [POST]
@@ -276,9 +277,15 @@ func (a *qmUser) Login(c *gin.Context) {
 	// 创建业务用Context
 	ctx := c.Request.Context()
 
-	var loginReq request.QmUser
-
+	var loginReq request.QmLogin
 	err := c.ShouldBindJSON(&loginReq)
+	key := c.ClientIP()
+
+	if err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	err = utils.Verify(loginReq, utils.LoginVerify)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
@@ -290,27 +297,80 @@ func (a *qmUser) Login(c *gin.Context) {
 		return
 	}
 
-	user, err := serviceQmUser.Login(ctx, *loginReq.Username, *loginReq.Password)
+	err = utils.Verify(loginReq, utils.LoginVerify)
 	if err != nil {
-		global.GVA_LOG.Error("登录失败", zap.Error(err))
-		response.FailWithMessage("登录失败: "+err.Error(), c)
+		response.FailWithMessage(err.Error(), c)
 		return
 	}
 
-	token, claims, err := utils.LoginToken(&user)
-	if err != nil {
-		global.GVA_LOG.Error("生成token失败", zap.Error(err))
-		response.FailWithMessage("登录失败: "+err.Error(), c)
+	// 判断验证码是否开启
+	openCaptcha := global.GVA_CONFIG.Captcha.OpenCaptcha               // 是否开启防爆次数
+	openCaptchaTimeOut := global.GVA_CONFIG.Captcha.OpenCaptchaTimeOut // 缓存超时时间
+	v, ok := global.BlackCache.Get(key)
+	if !ok {
+		global.BlackCache.Set(key, 1, time.Second*time.Duration(openCaptchaTimeOut))
+	}
+
+	// 判断是否需要验证码
+	var oc bool = openCaptcha == 0 || openCaptcha < interfaceToInt(v)
+
+	// 验证码校验
+	store := captcha.NewDefaultRedisStore()
+
+	// 调试信息
+	global.GVA_LOG.Info("Login attempt", zap.String("username", *loginReq.Username))
+	global.GVA_LOG.Info("Captcha info", zap.String("captchaId", loginReq.CaptchaId), zap.String("captcha", loginReq.Captcha))
+
+	// 修复验证码逻辑：如果需要验证码，则必须验证通过；如果不需要验证码，则直接通过
+	if !oc || (loginReq.CaptchaId != "" && loginReq.Captcha != "" && store.Verify(loginReq.CaptchaId, loginReq.Captcha, true)) {
+		user, err := serviceQmUser.Login(ctx, *loginReq.Username, *loginReq.Password)
+		if err != nil {
+			global.GVA_LOG.Error("登录失败! 用户名不存在或者密码错误!", zap.Error(err))
+			// 验证码次数+1
+			global.BlackCache.Increment(key, 1)
+			response.FailWithMessage("用户名不存在或者密码错误", c)
+			return
+		}
+
+		// 记录用户ID用于调试
+		global.GVA_LOG.Info("用户登录成功", zap.Uint("userId", user.ID))
+
+		token, claims, err := utils.LoginToken(&user)
+		if err != nil {
+			global.GVA_LOG.Error("生成token失败", zap.Error(err))
+			response.FailWithMessage("登录失败: "+err.Error(), c)
+			return
+		}
+
+		// 记录token信息用于调试
+		global.GVA_LOG.Info("Token生成成功",
+			zap.Uint("userId", claims.BaseClaims.ID),
+			zap.String("username", claims.Username))
+
+		maxAge := int(claims.RegisteredClaims.ExpiresAt.Unix() - time.Now().Unix())
+		utils.SetToken(c, token, maxAge)
+		response.OkWithDetailed(gin.H{
+			"user":      user,
+			"token":     token,
+			"expiresAt": claims.RegisteredClaims.ExpiresAt,
+		}, "登录成功", c)
 		return
 	}
 
-	maxAge := int(claims.RegisteredClaims.ExpiresAt.Unix() - time.Now().Unix())
-	utils.SetToken(c, token, maxAge)
-	response.OkWithDetailed(gin.H{
-		"user":      user,
-		"token":     token,
-		"expiresAt": claims.RegisteredClaims.ExpiresAt,
-	}, "登录成功", c)
+	// 验证码次数+1
+	global.BlackCache.Increment(key, 1)
+	response.FailWithMessage("验证码错误", c)
+}
+
+// 类型转换
+func interfaceToInt(v interface{}) (i int) {
+	switch v := v.(type) {
+	case int:
+		i = v
+	default:
+		i = 0
+	}
+	return
 }
 
 // 获取用户信息
@@ -334,6 +394,11 @@ func (a *qmUser) GetUserInfo(c *gin.Context) {
 	// 调用server方法接收参数并获取返回参数
 	user, err := serviceQmUser.GetUserInfo(ctx, id)
 	if err != nil {
+		// 检查是否是"记录未找到"错误
+		if err.Error() == "record not found" {
+			response.FailWithMessage("用户不存在，请重新登录", c)
+			return
+		}
 		global.GVA_LOG.Error("获取用户信息失败", zap.Error(err))
 		response.FailWithMessage("获取用户信息失败", c)
 		return

@@ -10,6 +10,7 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/komo/plugin"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gofrs/uuid/v5"
+	"go.uber.org/zap"
 )
 
 var QmUser = new(qmUser)
@@ -176,8 +177,24 @@ func (s *qmUser) Login(ctx context.Context, username, password string) (user mod
 
 // GetUserInfo 获取用户信息
 func (s *qmUser) GetUserInfo(ctx context.Context, userId uint) (user model.QmUser, err error) {
-	// 从参数中获取必要信息
-	// userId := params["ID"].(uint)
+	// 记录正在查询的用户ID
+	global.GVA_LOG.Info("正在查询用户信息",
+		zap.Uint("userId", userId),
+		zap.String("表名", model.QmUser{}.TableName()))
+
+	// 根据ID查询用户
 	err = global.GVA_DB.First(&user, "id = ?", userId).Error
+
+	// 记录查询结果
+	if err != nil {
+		global.GVA_LOG.Error("查询用户信息失败",
+			zap.Error(err),
+			zap.Uint("userId", userId))
+	} else {
+		global.GVA_LOG.Info("查询用户信息成功",
+			zap.Uint("userId", userId),
+			zap.String("username", *user.Username))
+	}
+
 	return
 }
