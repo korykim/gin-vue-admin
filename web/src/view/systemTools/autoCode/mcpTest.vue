@@ -106,7 +106,15 @@
       <div v-if="apiDialogResponse" class="mt-5 p-[15px] border border-gray-200 rounded bg-gray-50">
         <h4 class="mt-0 mb-2.5 text-base">API 返回结果:</h4>
         <div v-if="typeof apiDialogResponse === 'string'">
-          <pre class="bg-gray-100 p-2.5 rounded whitespace-pre-wrap break-words overflow-y-auto">{{ apiDialogResponse }}</pre>
+          <json-viewer
+            :value="parseJsonIfPossible(apiDialogResponse)"
+            copyable
+            boxed
+            sort
+            expanded
+            theme="light"
+            class="json-viewer-container"
+          />
         </div>
         <div v-else-if="apiDialogResponse.type === 'image' && apiDialogResponse.content">
            <el-image
@@ -117,10 +125,26 @@
             />
         </div>
          <div v-else-if="apiDialogResponse.type === 'text' && apiDialogResponse.content">
-          <pre class="bg-gray-100 p-2.5 rounded whitespace-pre-wrap break-words overflow-y-auto">{{ apiDialogResponse.content }}</pre>
+          <json-viewer
+            :value="parseJsonIfPossible(apiDialogResponse.content)"
+            copyable
+            boxed
+            sort
+            expanded
+            theme="light"
+            class="json-viewer-container"
+          />
         </div>
         <div v-else>
-          <pre class="bg-gray-100 p-2.5 rounded whitespace-pre-wrap break-words overflow-y-auto">{{ JSON.stringify(apiDialogResponse, null, 2) }}</pre>
+          <json-viewer
+            :value="apiDialogResponse"
+            copyable
+            boxed
+            sort
+            expanded
+            theme="light"
+            class="json-viewer-container"
+          />
         </div>
       </div>
       <template #footer>
@@ -138,6 +162,8 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { VideoPlay, DocumentCopy } from '@element-plus/icons-vue' // Added DocumentCopy
 import { mcpList, mcpTest } from '@/api/autoCode'
+import { JsonViewer } from 'vue3-json-viewer'
+import 'vue3-json-viewer/dist/index.css'
 
 const mcpTools = ref([])
 const testDialogVisible = ref(false)
@@ -162,6 +188,19 @@ const fetchMcpTools = async () => {
     } else {
       ElMessage.error(res.msg || '获取工具列表失败或数据格式不正确')
     }
+}
+
+// 尝试将字符串解析为JSON，如果失败则返回原始字符串
+const parseJsonIfPossible = (str) => {
+  if (typeof str !== 'string') {
+    return str
+  }
+  
+  try {
+    return JSON.parse(str)
+  } catch (e) {
+    return str
+  }
 }
 
 onMounted(() => {
@@ -254,3 +293,10 @@ const handleDialogTestTool = async () => {
 }
 
 </script>
+
+<style>
+.json-viewer-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+</style>
