@@ -11,6 +11,7 @@
   "/src/view/dashboard/components/table.vue": "Table",
   "/src/view/dashboard/components/wiki.vue": "Wiki",
   "/src/view/dashboard/index.vue": "Dashboard",
+  "/src/view/demo/amap/index.vue": "amap",
   "/src/view/demo/eye/index.vue": "Index",
   "/src/view/demo/index.vue": "Demo",
   "/src/view/demo/minweb/index.vue": "MinWeb",
