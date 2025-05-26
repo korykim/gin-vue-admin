@@ -1,5 +1,7 @@
 <template>
-    <div class="poi-list-container">
+    <div class="amaplist-container">
+      <JumpTop :right="50" :bottom="20" text="回到顶部" />
+
       <div class="gva-search-box">
         <el-form ref="elSearchFormRef" :inline="true" :model="searchInfo" class="demo-form-inline" @keyup.enter="onSubmit">
           <el-form-item label="名称" prop="name">
@@ -11,6 +13,9 @@
           <el-form-item label="地区" prop="adname">
             <el-input v-model="searchInfo.adname" placeholder="搜索地区" />
           </el-form-item>
+          <el-form-item label="地址" prop="address">
+            <el-input v-model="searchInfo.address" placeholder="搜索地址关键词" />
+          </el-form-item>
   
           <el-form-item>
             <el-button type="primary" @click="onSubmit">查询</el-button>
@@ -18,8 +23,10 @@
           </el-form-item>
         </el-form>
       </div>
-      <div class="gva-table-box">
+
+      <div class="content-main">
         <div class="gva-btn-list">
+          <el-button type="primary" @click="exportToExcel">导出数据</el-button>
           <el-button type="danger" @click="clearAllPois">清空所有数据</el-button>
         </div>
         <el-table
@@ -30,6 +37,7 @@
           row-key="id"
           @selection-change="handleSelectionChange"
           v-loading="loading"
+          height="calc(100% - 100px)"
         >
           <el-table-column type="selection" width="55" />
           
@@ -90,12 +98,17 @@
           />
         </div>
       </div>
+
     </div>
+
   </template>
   
   <script setup>
   import { ref, onMounted, onActivated } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
+  import * as XLSX from 'xlsx'
+  import JumpTop from '@/components/jumptop/jumptop.vue'
+
   
   defineOptions({
     name: 'amaplist'
@@ -172,6 +185,13 @@
       )
     }
     
+    // 添加地址模糊搜索
+    if (searchInfo.value.address) {
+      filteredData = filteredData.filter(item => 
+        item.address && item.address.toLowerCase().includes(searchInfo.value.address.toLowerCase())
+      )
+    }
+    
     // 更新总数
     total.value = filteredData.length
     
@@ -243,6 +263,61 @@
     })
   }
   
+  // 导出Excel
+  const exportToExcel = () => {
+    try {
+      if (!allPoisData.value || allPoisData.value.length === 0) {
+        ElMessage.warning('没有数据可导出')
+        return
+      }
+      
+      // 创建工作簿
+      const workbook = XLSX.utils.book_new()
+      
+      // 准备数据 - 处理照片数据，将照片URL数组转换为字符串
+      const exportData = allPoisData.value.map(item => {
+        const newItem = { ...item }
+        // 处理照片数据，将对象数组转换为URL字符串，用分号分隔
+        if (newItem.photos && newItem.photos.length) {
+          newItem.photoUrls = newItem.photos.map(photo => photo.url).join('; ')
+        } else {
+          newItem.photoUrls = ''
+        }
+        // 删除原始照片对象数组，避免导出复杂对象
+        delete newItem.photos
+        return newItem
+      })
+      
+      // 创建工作表
+      const worksheet = XLSX.utils.json_to_sheet(exportData)
+      
+      // 添加工作表到工作簿
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'POI数据')
+      
+      // 设置列宽
+      const columnWidths = [
+        { wch: 20 }, // 名称
+        { wch: 20 }, // ID
+        { wch: 15 }, // 类型
+        { wch: 15 }, // 电话
+        { wch: 30 }, // 地址
+        { wch: 10 }, // 省份
+        { wch: 10 }, // 城市
+        { wch: 10 }, // 区域
+        { wch: 50 }  // 照片URLs
+      ]
+      worksheet['!cols'] = columnWidths
+      
+      // 导出Excel文件
+      XLSX.writeFile(workbook, 'POI数据.xlsx')
+      
+      ElMessage.success('导出成功')
+    } catch (error) {
+      console.error('导出Excel失败:', error)
+      ElMessage.error('导出Excel失败: ' + error.message)
+    }
+  }
+  
   // 组件挂载时加载数据
   onMounted(() => {
     loadPoisData()
@@ -254,21 +329,42 @@
   })
   </script>
   
-  <style scoped>
-  .poi-list-container {
-    height: 100%;
+  <style lang="scss" scoped>
+  .amaplist-container {
+    height: 100vh;
     width: 100%;
     display: flex;
     flex-direction: column;
-    overflow-y: scroll; /* 改为scroll，始终显示滚动条 */
+    overflow-y: auto;
+    background-color: var(--el-bg-color);
+    padding: 16px;
+    box-sizing: border-box;
   }
   
-  .gva-table-box {
+  .gva-search-box {
+    margin-bottom: 16px;
+    background-color: var(--el-bg-color-overlay);
+    padding: 16px;
+    border-radius: 4px;
+    box-shadow: var(--el-box-shadow-light);
+  }
+  
+  .content-main {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow-y: scroll; /* 改为scroll，始终显示滚动条 */
-    min-height: 0; /* 修复Flex布局中的滚动问题，允许容器收缩并启用滚动 */
+    overflow: auto;
+    background-color: var(--el-bg-color-overlay);
+    border-radius: 4px;
+    box-shadow: var(--el-box-shadow-light);
+    padding: 16px;
+    height: calc(100vh - 150px);
+  }
+  
+  .gva-btn-list {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 8px;
   }
   
   .photo-list {
@@ -283,8 +379,36 @@
   }
   
   .gva-pagination {
-    margin-top: 15px;
-    margin-bottom: 15px; /* 添加底部间距，防止分页控件紧贴底部 */
+    margin-top: 16px;
+    padding: 8px 0;
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  /* 自定义滚动条 */
+  :deep(::-webkit-scrollbar) {
+    width: 10px;
+    height: 10px;
+  }
+  
+  :deep(::-webkit-scrollbar-track) {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  
+  :deep(::-webkit-scrollbar-thumb) {
+    background: #888;
+    border-radius: 4px;
+  }
+  
+  :deep(::-webkit-scrollbar-thumb:hover) {
+    background: #555;
+  }
+  
+  /* 确保表格内容可以滚动 */
+  .el-table {
+    flex: 1;
+    overflow: auto;
   }
   </style>
   
@@ -316,25 +440,5 @@
   
   .el-image-viewer__mask {
     pointer-events: auto !important;
-  }
-  
-  /* 自定义滚动条样式 */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  
-  ::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-  }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    background: #555;
   }
   </style> 

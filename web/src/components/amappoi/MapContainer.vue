@@ -16,6 +16,8 @@ const currentLngLat = ref({ lng: '', lat: '' });
 const copySuccess = ref(false);
 // 已保存的POI数量
 const savedPoisCount = ref(0);
+// POI类型编码
+const poiTypeCode = ref('071100');
 
 onMounted(() => {
     window._AMapSecurityConfig = {
@@ -62,7 +64,7 @@ function initAutoComplete(AMap) {
         pageSize: 25,
         extensions: 'all',
         panel: "panel",
-        type: '071100' // 美容美发店服务
+        type: poiTypeCode.value // 使用响应式变量
     });
 
     // 注册监听，当选中某条记录时会触发
@@ -93,6 +95,7 @@ function getNearbyPois(lnglat, AMap) {
       <div>点击位置</div>
       <div>经度: ${lng}</div>
       <div>纬度: ${lat}</div>
+      <div>类型: ${poiTypeCode.value}</div>
     </div>`
     });
 
@@ -104,7 +107,7 @@ function getNearbyPois(lnglat, AMap) {
         extensions: 'all',
         panel: "panel",
         keywords: '',
-        type: '071100' // 美容美发店服务
+        type: poiTypeCode.value // 使用响应式变量
     });
 
     // 显示结果面板
@@ -215,6 +218,15 @@ function savePoisToLocalStorage(newPois) {
                     poi.location = [poi.location.lng, poi.location.lat];
                 }
             }
+            
+            // 添加POI类型编码
+            poi.poiType = poiTypeCode.value;
+
+            // 添加POI类型编码
+            poi.BigCategory=poi.type.split(";")[0]
+            poi.MidCategory=poi.type.split(";")[1]
+            poi.SubCategory=poi.type.split(";")[2]
+            
             savedPois.push(poi);
             poisMap.set(poi.id, poi);
         }
@@ -225,7 +237,7 @@ function savePoisToLocalStorage(newPois) {
         localStorage.setItem('amapPois', JSON.stringify(savedPois));
         // 更新保存的POI计数
         savedPoisCount.value = savedPois.length;
-        console.log(`成功保存${savedPois.length}个POI点到localStorage`);
+        console.log(`成功保存${savedPois.length}个POI点到localStorage，类型编码: ${poiTypeCode.value}`);
     } catch (error) {
         console.error('保存POI数据到localStorage失败:', error);
     }
@@ -272,11 +284,18 @@ onUnmounted(() => {
         <div id="container" class="w-full h-full absolute top-0 left-0"></div>
         
         <!-- 搜索框 -->
-        <div id="myPageTop" class="absolute top-3 right-3 bg-white dark:bg-slate-700 p-3 rounded-md shadow-md z-10">
+        <div id="myPageTop" class="absolute top-3 right-3 bg-white dark:bg-slate-700 p-3 rounded-md shadow-md z-10 mt-35">
             <div class="flex flex-col">
                 <label class="text-slate-700 dark:text-slate-300 mb-1">请输入关键字：</label>
                 <input id="tipinput" class="w-48 h-8 px-2 border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-300" />
             </div>
+            
+            <div class="flex flex-col mt-2">
+                <label class="text-slate-700 dark:text-slate-300 mb-1">POI类型编码：</label>
+                <input v-model="poiTypeCode" class="w-48 h-8 px-2 border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-300" placeholder="例如：071100（美容美发店）" />
+                <div class="text-xs text-gray-500 mt-1">默认：071100（美容美发店）</div>
+            </div>
+            
             <div class="flex justify-between mt-2">
                 <button @click="clearSavedPois" class="text-xs text-red-500 hover:text-red-700">
                     清除历史记录
