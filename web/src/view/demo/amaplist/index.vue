@@ -28,6 +28,8 @@
         <div class="gva-btn-list">
           <el-button type="primary" @click="exportToExcel">导出数据</el-button>
           <el-button type="danger" @click="clearAllPois">清空所有数据</el-button>
+          <el-button type="danger" :disabled="!multipleSelection.length" @click="batchDeletePois">批量删除</el-button>
+          <el-tag v-if="multipleSelection.length" type="info" class="ml-2">已选择 {{ multipleSelection.length }} 项</el-tag>
         </div>
         <el-table
           ref="multipleTable"
@@ -43,7 +45,11 @@
           
           <el-table-column align="left" label="名称" prop="name" width="120" />
           
-          <el-table-column align="left" label="ID" prop="id" width="120" />
+          <el-table-column align="left" label="ID" prop="id" width="120">
+            <template #default="scope">
+              <a href="javascript:;" class="id-link" @click="showPoiDetail(scope.row.id)">{{ scope.row.id }}</a>
+            </template>
+          </el-table-column>
           
           <el-table-column align="left" label="类型" prop="type" width="180" />
           
@@ -99,6 +105,84 @@
         </div>
       </div>
 
+      <!-- POI详情弹窗 -->
+      <el-dialog
+        v-model="poiDetailVisible"
+        title="POI详情信息"
+        width="70%"
+        :close-on-click-modal="false"
+        destroy-on-close
+      >
+        <div v-loading="poiDetailLoading">
+          <div v-if="poiDetail" class="poi-detail-container">
+            <div class="poi-detail-header">
+              <h2>{{ poiDetail.name }}</h2>
+              <div class="poi-basic-info">
+                <div><span class="info-label">ID:</span> {{ poiDetail.id }}</div>
+                <div><span class="info-label">类型:</span> {{ poiDetail.type }}</div>
+                <div><span class="info-label">地址:</span> {{ poiDetail.address }}</div>
+                <div><span class="info-label">位置:</span> {{ poiDetail.location }}</div>
+              </div>
+            </div>
+
+            <!-- 联系方式和营业信息 -->
+            <div v-if="poiDetail.business" class="poi-section">
+              <h3>营业信息</h3>
+              <div class="poi-business-info">
+                <div v-if="poiDetail.business.business_area"><span class="info-label">商圈:</span> {{ poiDetail.business.business_area }}</div>
+                <div v-if="poiDetail.business.tel"><span class="info-label">电话:</span> {{ poiDetail.business.tel }}</div>
+                <div v-if="poiDetail.business.rating"><span class="info-label">评分:</span> {{ poiDetail.business.rating }}</div>
+                <div v-if="poiDetail.business.opentime_today"><span class="info-label">今日营业时间:</span> {{ poiDetail.business.opentime_today }}</div>
+                <div v-if="poiDetail.business.opentime_week"><span class="info-label">每周营业时间:</span> {{ poiDetail.business.opentime_week }}</div>
+                <div v-if="poiDetail.business.rectag"><span class="info-label">推荐标签:</span> {{ poiDetail.business.rectag }}</div>
+                <div v-if="poiDetail.business.keytag"><span class="info-label">关键标签:</span> {{ poiDetail.business.keytag }}</div>
+              </div>
+            </div>
+
+            <!-- 照片展示 -->
+            <div v-if="poiDetail.photos && poiDetail.photos.length > 0" class="poi-section">
+              <h3>照片</h3>
+              <div class="poi-photos">
+                <el-image 
+                  v-for="(photo, index) in poiDetail.photos" 
+                  :key="index" 
+                  style="width: 120px; height: 120px; margin-right: 10px; margin-bottom: 10px;" 
+                  :src="photo.url" 
+                  :preview-src-list="poiDetail.photos.map(p => p.url)"
+                  fit="cover"
+                  :initial-index="index"
+                  preview-teleported
+                />
+              </div>
+            </div>
+
+            <!-- 导航信息 -->
+            <div v-if="poiDetail.navi" class="poi-section">
+              <h3>导航信息</h3>
+              <div class="poi-navi-info">
+                <div v-if="poiDetail.navi.entr_location"><span class="info-label">入口位置:</span> {{ poiDetail.navi.entr_location }}</div>
+                <div v-if="poiDetail.navi.gridcode"><span class="info-label">网格编码:</span> {{ poiDetail.navi.gridcode }}</div>
+              </div>
+            </div>
+
+            <!-- 原始数据 -->
+            <div class="poi-section">
+              <h3>原始JSON数据</h3>
+              <json-viewer
+                :value="parseJsonIfPossible(poiDetailJson)"
+                copyable
+                boxed
+                sort
+                expanded
+                theme="light"
+                class="json-viewer-container"
+              />
+            </div>
+          </div>
+          <el-empty v-else description="暂无详情数据" />
+        </div>
+      </el-dialog>
+
     </div>
 
   </template>
@@ -108,6 +192,9 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
   import * as XLSX from 'xlsx'
   import JumpTop from '@/components/jumptop/jumptop.vue'
+  import axios from 'axios'
+  import { JsonViewer } from 'vue3-json-viewer'
+  import 'vue3-json-viewer/dist/index.css'
 
   
   defineOptions({
@@ -125,6 +212,13 @@
   
   // 多选数据
   const multipleSelection = ref([])
+  const multipleTable = ref(null)
+  
+  // 添加POI详情相关变量
+  const poiDetailVisible = ref(false)
+  const poiDetailLoading = ref(false)
+  const poiDetail = ref(null)
+  const poiDetailJson = ref('')
   
   // 处理多选
   const handleSelectionChange = (val) => {
@@ -318,6 +412,91 @@
     }
   }
   
+  // 尝试将字符串解析为JSON，如果失败则返回原始字符串
+  const parseJsonIfPossible = (str) => {
+    if (typeof str !== 'string') {
+      return str
+    }
+    
+    try {
+      return JSON.parse(str)
+    } catch (e) {
+      console.error('JSON解析失败:', e)
+      return str
+    }
+  }
+  
+  // 显示POI详情
+  const showPoiDetail = async (id) => {
+    poiDetailVisible.value = true
+    poiDetailLoading.value = true
+    poiDetail.value = null
+    poiDetailJson.value = ''
+    
+    try {
+      // 替换为您的实际高德地图API Key
+      const apiKey = '53269938ccac7faafdd3737e06a0b4f8' // 实际使用时应该换成真实的key
+      const response = await axios.get(`https://restapi.amap.com/v5/place/detail`, {
+        params: {
+          id: id,
+          show_fields: 'business,children,indoor,photos,navi',
+          key: apiKey
+        }
+      })
+      
+      console.log('高德地图API返回数据:', response.data)
+      
+      if (response.data.status === '1' && response.data.pois && response.data.pois.length > 0) {
+        poiDetail.value = response.data.pois[0]
+        poiDetailJson.value = JSON.stringify(response.data, null, 2)
+      } else {
+        ElMessage.warning('未找到该POI的详细信息')
+      }
+    } catch (error) {
+      console.error('获取POI详情失败:', error)
+      ElMessage.error('获取POI详情失败: ' + (error.message || '未知错误'))
+    } finally {
+      poiDetailLoading.value = false
+    }
+  }
+  
+  // 批量删除选中的POI数据
+  const batchDeletePois = () => {
+    if (multipleSelection.value.length === 0) {
+      ElMessage.warning('请先选择要删除的数据')
+      return
+    }
+    
+    ElMessageBox.confirm(`确定要删除选中的 ${multipleSelection.value.length} 条POI数据吗?`, '批量删除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }).then(() => {
+      try {
+        // 获取所有选中项的ID
+        const selectedIds = multipleSelection.value.map(item => item.id)
+        
+        // 过滤掉选中的数据
+        const newPoisData = allPoisData.value.filter(item => !selectedIds.includes(item.id))
+        
+        // 保存到localStorage
+        localStorage.setItem('amapPois', JSON.stringify(newPoisData))
+        
+        // 提示成功
+        ElMessage.success(`成功删除 ${multipleSelection.value.length} 条数据`)
+        
+        // 清空选择
+        multipleSelection.value = []
+        
+        // 重新加载数据
+        loadPoisData()
+      } catch (error) {
+        console.error('批量删除POI数据失败:', error)
+        ElMessage.error('批量删除POI数据失败: ' + error.message)
+      }
+    })
+  }
+  
   // 组件挂载时加载数据
   onMounted(() => {
     loadPoisData()
@@ -335,10 +514,10 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
     background-color: var(--el-bg-color);
     padding: 16px;
     box-sizing: border-box;
+    overflow-y: auto; /* 允许垂直滚动 */
   }
   
   .gva-search-box {
@@ -353,18 +532,23 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: auto;
     background-color: var(--el-bg-color-overlay);
     border-radius: 4px;
     box-shadow: var(--el-box-shadow-light);
     padding: 16px;
     height: calc(100vh - 150px);
+    overflow: hidden; /* 防止内容溢出 */
   }
   
   .gva-btn-list {
     margin-bottom: 16px;
     display: flex;
     gap: 8px;
+    align-items: center;
+  }
+  
+  .ml-2 {
+    margin-left: 8px;
   }
   
   .photo-list {
@@ -387,8 +571,8 @@
   
   /* 自定义滚动条 */
   :deep(::-webkit-scrollbar) {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   
   :deep(::-webkit-scrollbar-track) {
@@ -409,6 +593,75 @@
   .el-table {
     flex: 1;
     overflow: auto;
+  }
+  
+  /* POI详情样式 */
+  .poi-detail-container {
+    padding: 0 10px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  
+  .poi-detail-header {
+    margin-bottom: 20px;
+    
+    h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: var(--el-color-primary);
+    }
+  }
+  
+  .poi-section {
+    margin-bottom: 20px;
+    
+    h3 {
+      margin-top: 5px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      color: var(--el-color-primary-light-3);
+      border-bottom: 1px solid var(--el-border-color-light);
+      padding-bottom: 5px;
+    }
+  }
+  
+  .poi-basic-info,
+  .poi-business-info,
+  .poi-navi-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 10px;
+    
+    div {
+      margin-bottom: 5px;
+    }
+  }
+  
+  .info-label {
+    font-weight: bold;
+    color: var(--el-text-color-secondary);
+    margin-right: 5px;
+  }
+  
+  .poi-photos {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  
+  .id-link {
+    color: var(--el-color-primary);
+    text-decoration: none;
+    cursor: pointer;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+  
+  /* JSON查看器样式 */
+  .json-viewer-container {
+    max-height: 400px;
+    overflow-y: auto;
   }
   </style>
   
@@ -440,5 +693,16 @@
   
   .el-image-viewer__mask {
     pointer-events: auto !important;
+  }
+  
+  /* 添加全局滚动条样式 */
+  html, body {
+    overflow-x: hidden;
+  }
+  
+  .amaplist-container {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
   }
   </style> 

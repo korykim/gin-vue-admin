@@ -7,6 +7,7 @@ defineComponent({
 })
 
 let map = null;
+let contextMenu = null;
 
 // 用于存储搜索结果的POI点
 const searchResults = ref([]);
@@ -16,8 +17,12 @@ const currentLngLat = ref({ lng: '', lat: '' });
 const copySuccess = ref(false);
 // 已保存的POI数量
 const savedPoisCount = ref(0);
+// 已保存的点击位置数量
+const savedClicksCount = ref(0);
 // POI类型编码
 const poiTypeCode = ref('071100');
+// 搜索半径
+const searchRadius = ref(200);
 
 onMounted(() => {
     window._AMapSecurityConfig = {
@@ -26,7 +31,7 @@ onMounted(() => {
     AMapLoader.load({
         key: "", // 申请好的Web端开发者Key，首次调用 load 时必填
         version: "2.0", // 指定要加载的 JSAPI 的版本，缺省时默认为 1.4.15
-        plugins: ["AMap.Scale", "AMap.PlaceSearch", "AMap.AutoComplete"], // 需要使用的的插件列表
+        plugins: ["AMap.Scale", "AMap.PlaceSearch", "AMap.AutoComplete", "AMap.ContextMenu"], // 需要使用的的插件列表
     })
         .then((AMap) => {
             map = new AMap.Map("container", {
@@ -42,10 +47,17 @@ onMounted(() => {
             // 添加地图点击事件
             map.on('click', (e) => {
                 getNearbyPois(e.lnglat, AMap);
+                // 保存点击位置
+                saveClickPosition(e.lnglat);
             });
+            
+            // 初始化右键菜单
+            initContextMenu(AMap);
             
             // 加载已保存的POI数据
             loadSavedPois(AMap);
+            // 加载已保存的点击位置数量
+            loadSavedClicksCount();
         })
         .catch((e) => {
             console.log(e);
@@ -75,6 +87,58 @@ function initAutoComplete(AMap) {
     });
 }
 
+// 初始化右键菜单
+function initContextMenu(AMap) {
+    // 创建右键菜单实例
+    contextMenu = new AMap.ContextMenu();
+    
+    // 添加放大一级菜单项
+    contextMenu.addItem("放大一级", function() {
+        map.zoomIn();
+    }, 0);
+    
+    // 添加缩小一级菜单项
+    contextMenu.addItem("缩小一级", function() {
+        map.zoomOut();
+    }, 1);
+    
+    // 添加在此处标记菜单项
+    contextMenu.addItem("在此处标记", function(e) {
+        if (e.lnglat) {
+            // 创建标记
+            new AMap.Marker({
+                position: e.lnglat,
+                map: map,
+                content: `<div class="custom-marker bg-blue-500 text-white px-2 py-1 rounded-md shadow-md">标记点</div>`
+            });
+            
+            // 可以选择是否保存这个标记点
+            saveClickPosition(e.lnglat);
+        }
+    }, 2);
+    
+    // 添加显示当前级别菜单项
+    contextMenu.addItem("当前缩放级别: " + map.getZoom(), function() {
+        // 只是显示信息，不执行操作
+    }, 3);
+    
+    // 地图绑定鼠标右击事件——弹出右键菜单
+    map.on('rightclick', function(e) {
+        // 更新显示当前级别的菜单项
+        contextMenu.removeItem(3);
+        contextMenu.addItem("当前缩放级别: " + map.getZoom(), function() {}, 3);
+        
+        // 打开右键菜单
+        contextMenu.open(map, e.lnglat);
+        
+        // 记录右键点击的坐标
+        currentLngLat.value = { 
+            lng: e.lnglat.getLng().toFixed(6), 
+            lat: e.lnglat.getLat().toFixed(6) 
+        };
+    });
+}
+
 // 根据经纬度获取周边POI
 function getNearbyPois(lnglat, AMap) {
     // 清除地图上已有的标记
@@ -101,7 +165,7 @@ function getNearbyPois(lnglat, AMap) {
 
     // 使用PlaceSearch服务搜索周边POI
     const placeSearch = new AMap.PlaceSearch({
-        pageSize: 25,
+        pageSize: 100,
         pageIndex: 1,
         map: map,
         extensions: 'all',
@@ -113,8 +177,8 @@ function getNearbyPois(lnglat, AMap) {
     // 显示结果面板
     document.getElementById('panel').style.display = 'block';
 
-    // 周边搜索，200米范围内
-    placeSearch.searchNearBy('', lnglat, 200, (status, result) => {
+    // 周边搜索，使用用户设置的半径范围
+    placeSearch.searchNearBy('', lnglat, searchRadius.value, (status, result) => {
         if (status === 'complete' && result.info === 'OK') {
             console.log('搜索结果:', result.poiList.pois);
             searchResults.value = result.poiList.pois;
@@ -259,6 +323,63 @@ function copyLngLat() {
     }
 }
 
+// 保存点击位置信息到localStorage
+function saveClickPosition(lnglat) {
+    try {
+        // 格式化经纬度，保留6位小数
+        const lng = lnglat.getLng().toFixed(6);
+        const lat = lnglat.getLat().toFixed(6);
+        
+        // 获取当前时间
+        const now = new Date();
+        const timestamp = now.toISOString(); // ISO格式时间
+        const formattedTime = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+        
+        // 创建点击位置记录
+        const clickRecord = {
+            lng,
+            lat,
+            poiType: poiTypeCode.value,
+            timestamp,
+            formattedTime,
+            searchRadius: searchRadius.value
+        };
+        
+        // 从localStorage获取已存储的点击位置数据
+        let savedClicks = [];
+        const savedClicksStr = localStorage.getItem('amapClicks');
+        if (savedClicksStr) {
+            savedClicks = JSON.parse(savedClicksStr);
+        }
+        
+        // 添加新的点击位置记录
+        savedClicks.push(clickRecord);
+        
+        // 保存回localStorage
+        localStorage.setItem('amapClicks', JSON.stringify(savedClicks));
+        
+        // 更新保存的点击位置计数
+        savedClicksCount.value = savedClicks.length;
+        console.log(`成功保存点击位置：经度${lng}，纬度${lat}，类型${poiTypeCode.value}，时间${formattedTime}`);
+    } catch (error) {
+        console.error('保存点击位置失败:', error);
+    }
+}
+
+// 加载已保存的点击位置数量
+function loadSavedClicksCount() {
+    try {
+        const savedClicksStr = localStorage.getItem('amapClicks');
+        if (savedClicksStr) {
+            const savedClicks = JSON.parse(savedClicksStr);
+            savedClicksCount.value = savedClicks.length;
+            console.log(`从localStorage加载了${savedClicks.length}个点击位置记录`);
+        }
+    } catch (error) {
+        console.error('加载已保存的点击位置数量失败:', error);
+    }
+}
+
 // 清除已保存的POI数据
 function clearSavedPois() {
     try {
@@ -271,6 +392,26 @@ function clearSavedPois() {
         console.log('已清除所有保存的POI数据');
     } catch (error) {
         console.error('清除POI数据失败:', error);
+    }
+}
+
+// 清除已保存的点击位置数据
+function clearSavedClicks() {
+    try {
+        localStorage.removeItem('amapClicks');
+        savedClicksCount.value = 0;
+        console.log('已清除所有保存的点击位置数据');
+    } catch (error) {
+        console.error('清除点击位置数据失败:', error);
+    }
+}
+
+// 清除所有本地数据
+function clearAllData() {
+    clearSavedPois();
+    clearSavedClicks();
+    if (map) {
+        map.clearMap();
     }
 }
 
@@ -296,11 +437,20 @@ onUnmounted(() => {
                 <div class="text-xs text-gray-500 mt-1">默认：071100（美容美发店）</div>
             </div>
             
+            <div class="flex flex-col mt-2">
+                <label class="text-slate-700 dark:text-slate-300 mb-1">搜索半径(米)：</label>
+                <input v-model.number="searchRadius" type="number" min="0" max="50000" class="w-48 h-8 px-2 border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:text-slate-300" placeholder="取值范围：0-50000" />
+                <div class="text-xs text-gray-500 mt-1">默认：200米，最大：50000米</div>
+            </div>
+            
             <div class="flex justify-between mt-2">
-                <button @click="clearSavedPois" class="text-xs text-red-500 hover:text-red-700">
-                    清除历史记录
+                <button @click="clearAllData" class="text-xs text-red-500 hover:text-red-700">
+                    清除所有数据
                 </button>
-                <span class="text-xs text-gray-500">已保存 {{ savedPoisCount }} 个位置</span>
+                <div class="flex flex-col items-end">
+                    <span class="text-xs text-gray-500">已保存 {{ savedPoisCount }} 个位置</span>
+                    <span class="text-xs text-gray-500">已记录 {{ savedClicksCount }} 次点击</span>
+                </div>
             </div>
         </div>
 
@@ -327,6 +477,10 @@ onUnmounted(() => {
 
 <style scoped>
 .poi-marker {
+    @apply bg-white dark:bg-slate-700 py-0.5 px-1.5 border border-gray-300 dark:border-slate-600 rounded text-xs;
+}
+
+.custom-marker {
     @apply bg-white dark:bg-slate-700 py-0.5 px-1.5 border border-gray-300 dark:border-slate-600 rounded text-xs;
 }
 
