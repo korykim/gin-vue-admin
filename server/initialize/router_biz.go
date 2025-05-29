@@ -21,5 +21,10 @@ func initBizRouter(routers ...*gin.RouterGroup) {
 		demoRouter.InitPosterTagRouter(privateGroup, publicGroup)
 		demoRouter.InitEmployeeProfileRouter(privateGroup, publicGroup)
 		demoRouter.InitToyStoreRouter(privateGroup, publicGroup)
+		demoRouter.InitPoiItemsRouter(privateGroup, publicGroup)
+	}
+	{
+		kotraRouter := router.RouterGroupApp.Kotra
+		kotraRouter.InitProductImportRecordsRouter(privateGroup, publicGroup)
 	}
 }

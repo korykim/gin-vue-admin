@@ -10,11 +10,14 @@ type RouterGroup struct {
 	PostersRouter
 	TagsRouter
 	PosterTagRouter
-	EmployeeProfileRouter // InitDemoRouter 初始化Demo路由组
+	EmployeeProfileRouter
 	ToyStoreRouter
-	// 新增路由
 	PosterRouter
-	TagRouter
+	TagRouter // InitDemoRouter 初始化Demo路由组
+	// 新增路由
+	// 新增API
+	// 新增路由初始化
+	PoiItemsRouter
 }
 
 var (
@@ -24,9 +27,9 @@ var (
 	posterTagApi = api.ApiGroupApp.DemoApiGroup.PosterTagApi
 	TSEApi       = api.ApiGroupApp.DemoApiGroup.EmployeeProfileApi
 	TSApi        = api.ApiGroupApp.DemoApiGroup.ToyStoreApi
-	// 新增API
-	posterApi = api.ApiGroupApp.DemoApiGroup.PosterApi
-	tagApi    = api.ApiGroupApp.DemoApiGroup.TagApi
+	posterApi    = api.ApiGroupApp.DemoApiGroup.PosterApi
+	tagApi       = api.ApiGroupApp.DemoApiGroup.TagApi
+	poiItemsApi  = api.ApiGroupApp.DemoApiGroup.PoiItemsApi
 )
 var RouterGroupApp = new(RouterGroup)
 
@@ -37,7 +40,6 @@ func (s *RouterGroup) InitDemoRouter(Router *gin.RouterGroup, PublicRouter *gin.
 	s.PosterTagRouter.InitPosterTagRouter(Router, PublicRouter)
 	s.EmployeeProfileRouter.InitEmployeeProfileRouter(Router, PublicRouter)
 	s.ToyStoreRouter.InitToyStoreRouter(Router, PublicRouter)
-	// 新增路由初始化
 	s.PosterRouter.InitPosterRouter(Router, PublicRouter)
 	s.TagRouter.InitTagRouter(Router, PublicRouter)
 }

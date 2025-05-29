@@ -25,8 +25,6 @@ CREATE TABLE IF NOT EXISTS `poi_items` (
   `indoor_map` TINYINT(1) DEFAULT 0 COMMENT '是否有室内地图',
   `rating` DECIMAL(2,1) COMMENT '评分',
   `cost` DECIMAL(10,2) COMMENT '消费金额',
-  `_idx` INT COMMENT '索引',
-  `index` INT COMMENT '序号',
   `poiType` VARCHAR(10) COMMENT 'POI类型编码',
   `BigCategory` VARCHAR(50) COMMENT '大类别',
   `MidCategory` VARCHAR(50) COMMENT '中类别',

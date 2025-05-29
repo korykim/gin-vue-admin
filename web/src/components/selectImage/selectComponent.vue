@@ -5,23 +5,23 @@
   >
     <div class="w-full h-full overflow-hidden" :class="rounded ? 'rounded-full' : ''">
       <el-icon
-          v-if="isVideoExt(model || '')"
+          v-if="isModelVideo"
           :size="32"
           class="absolute top-[calc(50%-16px)] left-[calc(50%-16px)]"
       >
         <VideoPlay />
       </el-icon>
       <video
-          v-if="isVideoExt(model || '')"
+          v-if="isModelVideo"
           class="w-full h-full object-cover"
           muted
           preload="metadata"
       >
-        <source :src="getUrl(model) + '#t=1'" />
+        <source :src="imgUrl + '#t=1'" />
       </video>
 
       <el-image
-          v-if="model && !isVideoExt(model)"
+          v-if="model && !isModelVideo"
           class="w-full h-full"
           :src="imgUrl"
           :preview-src-list="srcList"
@@ -58,7 +58,7 @@
   const props = defineProps({
     model: {
       default: '',
-      type: String
+      type: [String, Object]
     },
     rounded: {
       default: false,
@@ -76,11 +76,23 @@
     emits('deleteItem')
   }
 
+  const getModelUrl = computed(() => {
+    if (!props.model) return ''
+    if (typeof props.model === 'string') return props.model
+    return props.model.url || ''
+  })
+
   const imgUrl = computed(() => {
-    return getUrl(props.model)
+    return getUrl(getModelUrl.value)
   })
 
   const srcList = computed(() => {
     return imgUrl.value ? [imgUrl.value] : []
+  })
+
+  const isModelVideo = computed(() => {
+    const url = getModelUrl.value
+    if (!url) return false
+    return isVideoExt(url)
   })
 </script>

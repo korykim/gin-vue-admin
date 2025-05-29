@@ -9,4 +9,5 @@ type ServiceGroup struct {
 	ToyStoreService
 	PosterService
 	TagService
+	PoiItemsService
 }

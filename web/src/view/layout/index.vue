@@ -23,10 +23,10 @@
         v-if="config.side_mode === 'combination' && device !== 'mobile'"
         mode="normal"
       />
-      <div class="flex-1 px-2 w-0 h-full">
+      <div class="flex-1 px-2 w-0 h-full flex flex-col">
         <gva-tabs v-if="config.showTabs" />
         <div
-          class="overflow-auto"
+          class="overflow-auto custom-scrollbar flex-1 h-0"
           :class="config.showTabs ? 'gva-container2' : 'gva-container pt-1'"
         >
           <router-view v-if="reloadFlag" v-slot="{ Component, route }">
@@ -111,4 +111,54 @@
   }
 </script>
 
-<style lang="scss"></style>
+<style lang="scss">
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.3) rgba(0, 0, 0, 0.05);
+  
+  &::-webkit-scrollbar {
+    width: 8px !important;
+    height: 8px !important;
+    display: block !important;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05) !important;
+    border-radius: 4px !important;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border-radius: 4px !important;
+    border: 2px solid transparent !important;
+    background-clip: content-box !important;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.5) !important;
+      background-clip: content-box !important;
+    }
+  }
+}
+
+.dark\:bg-slate-800 .custom-scrollbar,
+:root.dark .custom-scrollbar {
+  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.05);
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3) !important;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.5) !important;
+      background-clip: content-box !important;
+    }
+  }
+}
+
+.gva-container, .gva-container2 {
+  height: calc(100vh - 120px);
+}
+</style>

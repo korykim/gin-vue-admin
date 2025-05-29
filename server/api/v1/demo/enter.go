@@ -11,6 +11,7 @@ type ApiGroup struct {
 	ToyStoreApi
 	PosterApi
 	TagApi
+	PoiItemsApi
 }
 
 var (
@@ -22,4 +23,5 @@ var (
 	TSService        = service.ServiceGroupApp.DemoServiceGroup.ToyStoreService
 	posterService    = service.ServiceGroupApp.DemoServiceGroup.PosterService
 	tagService       = service.ServiceGroupApp.DemoServiceGroup.TagService
+	poiItemsService  = service.ServiceGroupApp.DemoServiceGroup.PoiItemsService
 )

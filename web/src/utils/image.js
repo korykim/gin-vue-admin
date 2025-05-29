@@ -111,8 +111,10 @@ const VIDEO_MIME_TYPES = ['video/mp4', 'video/webm', 'video/ogg']
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
 
 export const isVideoExt = (url) => {
-  const urlLower = url?.toLowerCase() || ''
-  return urlLower !== '' && VIDEO_EXTENSIONS.some(ext => urlLower.endsWith(ext))
+  if (!url) return false
+  if (typeof url !== 'string') return false
+  const urlLower = url.toLowerCase()
+  return VIDEO_EXTENSIONS.some(ext => urlLower.endsWith(ext))
 }
 
 export const isVideoMime = (type) => {

@@ -39,7 +39,8 @@
           row-key="id"
           @selection-change="handleSelectionChange"
           v-loading="loading"
-          height="calc(100% - 100px)"
+          height="800"
+           
         >
           <el-table-column type="selection" width="55" />
           
@@ -368,38 +369,130 @@
       // 创建工作簿
       const workbook = XLSX.utils.book_new()
       
-      // 准备数据 - 处理照片数据，将照片URL数组转换为字符串
-      const exportData = allPoisData.value.map(item => {
-        const newItem = { ...item }
-        // 处理照片数据，将对象数组转换为URL字符串，用分号分隔
-        if (newItem.photos && newItem.photos.length) {
-          newItem.photoUrls = newItem.photos.map(photo => photo.url).join('; ')
-        } else {
-          newItem.photoUrls = ''
-        }
-        // 删除原始照片对象数组，避免导出复杂对象
-        delete newItem.photos
-        return newItem
+      // 定义导出字段顺序
+      const exportFields = [
+        'BigCategory', 'MidCategory', 'SubCategory', 'adcode', 'address', 
+        'adname', 'citycode', 'cityname', 'cost', 'discount', 'distance', 
+        'email', 'entrLocation', 'exitLocation', 'groupbuy', 'id', 'indoorMap', 
+        'location', 'name', 'pcode', 'photos', 'pname', 'poiType', 'postcode', 
+        'rating', 'shopinfo', 'tel', 'type', 'website'
+      ]
+      
+      // 自定义表头映射
+      const headerMap = {
+        'BigCategory': '大类别',
+        'MidCategory': '中类别',
+        'SubCategory': '子类别',
+        'adcode': '区域编码',
+        'address': '详细地址',
+        'adname': '区域名称',
+        'citycode': '城市编码',
+        'cityname': '城市名称',
+        'cost': '消费金额',
+        'discount': '是否有优惠',
+        'distance': '距离(米)',
+        'email': '电子邮箱',
+        'entrLocation': '入口位置',
+        'exitLocation': '出口位置',
+        'groupbuy': '是否支持团购',
+        'id': 'POI唯一标识',
+        'indoorMap': '是否有室内地图',
+        'location': '位置坐标[经度,纬度]',
+        'name': 'POI名称',
+        'pcode': '省份编码',
+        'photos': '照片信息',
+        'pname': '省份名称',
+        'poiType': 'POI类型编码',
+        'postcode': '邮政编码',
+        'rating': '评分',
+        'shopinfo': '商铺信息',
+        'tel': '联系电话',
+        'type': '类型描述',
+        'website': '网站'
+      }
+      
+      // 准备数据 - 按照指定字段顺序导出
+      const exportData = allPoisData.value.map(poi => {
+        const rowData = {}
+        
+        // 按照指定顺序填充字段
+        exportFields.forEach(field => {
+          if (field === 'photos') {
+            // 将照片数组转换为JSON字符串，确保空值也是有效的JSON格式
+            if (poi[field] && Array.isArray(poi[field]) && poi[field].length > 0) {
+              rowData[field] = JSON.stringify(poi[field])
+            } else {
+              rowData[field] = '[]' // 空数组的JSON字符串
+            }
+          } else if (field === 'location') {
+            // 将位置坐标数组转换为JSON字符串，确保空值也是有效的JSON格式
+            if (poi[field] && Array.isArray(poi[field]) && poi[field].length > 0) {
+              rowData[field] = JSON.stringify(poi[field])
+            } else {
+              rowData[field] = '[]' // 空数组的JSON字符串
+            }
+          } else if (field === 'entrLocation' || field === 'exitLocation') {
+            // 处理可能为null的位置字段
+            if (poi[field] === null || poi[field] === undefined) {
+              rowData[field] = 'null' // JSON格式的null
+            } else if (typeof poi[field] === 'object') {
+              rowData[field] = JSON.stringify(poi[field])
+            } else {
+              rowData[field] = poi[field]
+            }
+          } else if (field === 'cost') {
+            // 处理消费金额字段，为空时使用0.00填充
+            if (poi[field] === null || poi[field] === undefined || poi[field] === '') {
+              rowData[field] = '0.00'
+            } else {
+              // 确保显示两位小数
+              rowData[field] = Number(poi[field]).toFixed(2)
+            }
+          } else if (field === 'rating') {
+            // 处理评分字段，为空时使用0.0填充
+            if (poi[field] === null || poi[field] === undefined || poi[field] === '') {
+              rowData[field] = '0.0'
+            } else {
+              // 确保显示一位小数
+              rowData[field] = Number(poi[field]).toFixed(1)
+            }
+          } else if (field === 'discount' || field === 'groupbuy' || field === 'indoorMap') {
+            // 布尔值转为0/1
+            rowData[field] = poi[field] ? 1 : 0
+          } else {
+            // 其他字段直接复制
+            rowData[field] = poi[field] !== undefined ? poi[field] : ''
+          }
+        })
+        
+        return rowData
       })
       
       // 创建工作表
-      const worksheet = XLSX.utils.json_to_sheet(exportData)
+      const worksheet = XLSX.utils.json_to_sheet(exportData, { 
+        header: exportFields 
+      })
+      
+      // 添加自定义表头
+      // 在A1单元格前添加一个空行用于放置自定义表头
+      XLSX.utils.sheet_add_aoa(worksheet, [
+        exportFields.map(field => headerMap[field])
+      ], { origin: "A1" })
       
       // 添加工作表到工作簿
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'POI数据')
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1')
       
       // 设置列宽
-      const columnWidths = [
-        { wch: 20 }, // 名称
-        { wch: 20 }, // ID
-        { wch: 15 }, // 类型
-        { wch: 15 }, // 电话
-        { wch: 30 }, // 地址
-        { wch: 10 }, // 省份
-        { wch: 10 }, // 城市
-        { wch: 10 }, // 区域
-        { wch: 50 }  // 照片URLs
-      ]
+      const columnWidths = exportFields.map(field => {
+        if (['address', 'photos', 'location'].includes(field)) {
+          return { wch: 60 } // 较长字段，增加宽度
+        } else if (['name', 'type', 'BigCategory', 'MidCategory', 'SubCategory'].includes(field)) {
+          return { wch: 25 } // 中等长度字段
+        } else {
+          return { wch: 15 } // 默认宽度
+        }
+      })
+      
       worksheet['!cols'] = columnWidths
       
       // 导出Excel文件
@@ -528,16 +621,21 @@
     box-shadow: var(--el-box-shadow-light);
   }
   
-  .content-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background-color: var(--el-bg-color-overlay);
-    border-radius: 4px;
-    box-shadow: var(--el-box-shadow-light);
-    padding: 16px;
-    height: calc(100vh - 150px);
-    overflow: hidden; /* 防止内容溢出 */
+  // .content-main {
+  //   flex: 1;
+  //   display: flex;
+  //   flex-direction: column;
+  //   background-color: var(--el-bg-color-overlay);
+  //   border-radius: 4px;
+  //   box-shadow: var(--el-box-shadow-light);
+  //   padding: 16px;
+  //   height: calc(100vh - 150px);
+  //   overflow: hidden; /* 防止内容溢出 */
+  // }
+
+  .content-main{
+    max-height: 90vh;
+    overflow-y: auto;
   }
   
   .gva-btn-list {
@@ -696,9 +794,9 @@
   }
   
   /* 添加全局滚动条样式 */
-  html, body {
+  /* html, body {
     overflow-x: hidden;
-  }
+  } */
   
   .amaplist-container {
     overflow-y: auto;

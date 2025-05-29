@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted, ref, defineComponent } from "vue";
 import AMapLoader from "@amap/amap-jsapi-loader";
+import { createPoiItemsInBatches } from '@/api/demo/poiItems';
 
 defineComponent({
     name: 'MapContainer'
@@ -26,10 +27,10 @@ const searchRadius = ref(200);
 
 onMounted(() => {
     window._AMapSecurityConfig = {
-        securityJsCode: "",
+        securityJsCode: "b8ca7fe1bd5eb9110f2b130dedfa20e6",
     };
     AMapLoader.load({
-        key: "", // 申请好的Web端开发者Key，首次调用 load 时必填
+        key: "f6d51e9b6ff91b7c9332a571ab1361e9", // 申请好的Web端开发者Key，首次调用 load 时必填
         version: "2.0", // 指定要加载的 JSAPI 的版本，缺省时默认为 1.4.15
         plugins: ["AMap.Scale", "AMap.PlaceSearch", "AMap.AutoComplete", "AMap.ContextMenu"], // 需要使用的的插件列表
     })
@@ -182,6 +183,17 @@ function getNearbyPois(lnglat, AMap) {
         if (status === 'complete' && result.info === 'OK') {
             console.log('搜索结果:', result.poiList.pois);
             searchResults.value = result.poiList.pois;
+
+            // 批量创建poiItems表 - 使用优化后的API
+            if (result.poiList.pois && result.poiList.pois.length > 0) {
+                createPoiItemsInBatches(result.poiList.pois)
+                    .then(res => {
+                        console.log('批量保存POI数据成功:', res);
+                    })
+                    .catch(err => {
+                        console.error('批量保存POI数据失败:', err);
+                    });
+            }
 
             // 在地图上标记所有POI点
             result.poiList.pois.forEach((poi) => {

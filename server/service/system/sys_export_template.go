@@ -429,7 +429,7 @@ func (sysExportTemplateService *SysExportTemplateService) ImportExcel(templateID
 		for _, row := range values {
 			var item = make(map[string]interface{})
 			for ii, value := range row {
-			    if _, ok := titleKeyMap[excelTitle[ii]]; !ok {
+				if _, ok := titleKeyMap[excelTitle[ii]]; !ok {
 					continue // excel中多余的标题，在模板信息中没有对应的字段，因此key为空，必须跳过
 				}
 				key := titleKeyMap[excelTitle[ii]]
