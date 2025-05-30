@@ -27,10 +27,10 @@ const searchRadius = ref(200);
 
 onMounted(() => {
     window._AMapSecurityConfig = {
-        securityJsCode: "b8ca7fe1bd5eb9110f2b130dedfa20e6",
+        securityJsCode: "",
     };
     AMapLoader.load({
-        key: "f6d51e9b6ff91b7c9332a571ab1361e9", // 申请好的Web端开发者Key，首次调用 load 时必填
+        key: "", // 申请好的Web端开发者Key，首次调用 load 时必填
         version: "2.0", // 指定要加载的 JSAPI 的版本，缺省时默认为 1.4.15
         plugins: ["AMap.Scale", "AMap.PlaceSearch", "AMap.AutoComplete", "AMap.ContextMenu"], // 需要使用的的插件列表
     })
