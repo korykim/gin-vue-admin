@@ -89,7 +89,7 @@
                   type="primary" 
                   link 
                   size="small" 
-                  @click="openAiqicha(scope.row.importerInformation)"
+                  @click="openQixin(scope.row.importerInformation)"
                 >
                   {{ scope.row.importerInformation }}
                 </el-button>
@@ -533,8 +533,8 @@ const closeDetailShow = () => {
   detailFrom.value = {}
 }
 
-const openAiqicha = (companyName) => {
-  const url = `https://aiqicha.baidu.com/s?q=${encodeURIComponent(companyName)}`;
+const openQixin = (companyName) => {
+  const url = `https://www.qixin.com/search?key=${encodeURIComponent(companyName)}`;
   window.open(url, '_blank');
 }
 
